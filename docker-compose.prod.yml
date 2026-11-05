@@ -1,0 +1,28 @@
+# Production override — only api_gateway exposed to host
+# Run: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+  api_gateway:
+    ports:
+      - "127.0.0.1:8080:8080"
+
+  auth_service:
+    ports: []
+
+  run_service:
+    ports: []
+
+  submission_service:
+    ports: []
+
+  repo_service:
+    ports: []
+
+  postgres:
+    ports: []
+
+  redis:
+    ports: []
+
+  piston:
+    ports: []

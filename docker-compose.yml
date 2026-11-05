@@ -1,0 +1,177 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: innogen-postgres
+    environment:
+      POSTGRES_DB: innogen
+      POSTGRES_USER: innogen
+      POSTGRES_PASSWORD: innogen
+    ports:
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
+    volumes:
+      - innogen_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U innogen"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7
+    container_name: innogen-redis
+    ports:
+      - "${REDIS_HOST_PORT:-6379}:6379"
+    volumes:
+      - innogen_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  piston:
+    image: ghcr.io/engineer-man/piston:latest
+    container_name: innogen-piston
+    privileged: true
+    restart: unless-stopped
+    ports:
+      - "${PISTON_HOST_PORT:-2000}:2000"
+    volumes:
+      - innogen_piston_data:/piston
+
+  api_gateway:
+    build:
+      context: .
+      args:
+        SERVICE_PATH: api_gateway/cmd
+    container_name: innogen-gateway
+    ports:
+      - "${API_GATEWAY_HOST_PORT:-8080}:8080"
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgres://innogen:innogen@postgres:5432/innogen?sslmode=disable
+      REDIS_ADDR: redis:6379
+      JWT_SECRET: ${JWT_SECRET:-innogen-dev-secret}
+      API_GATEWAY_PORT: "8080"
+      AUTH_SERVICE_URL: http://auth_service:8081
+      RUN_SERVICE_URL: http://run_service:8082
+      SUBMISSION_SERVICE_URL: http://submission_service:8083
+      REPO_SERVICE_URL: http://repo_service:8084
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
+    depends_on:
+      - auth_service
+      - run_service
+      - submission_service
+      - repo_service
+
+  auth_service:
+    build:
+      context: .
+      args:
+        SERVICE_PATH: auth_service/cmd
+    container_name: innogen-auth
+    ports:
+      - "${AUTH_SERVICE_HOST_PORT:-8081}:8081"
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgres://innogen:innogen@postgres:5432/innogen?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:-innogen-dev-secret}
+      AUTH_SERVICE_PORT: "8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  run_service:
+    build:
+      context: .
+      args:
+        SERVICE_PATH: run_service/cmd
+    container_name: innogen-runner
+    ports:
+      - "${RUN_SERVICE_HOST_PORT:-8082}:8082"
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgres://innogen:innogen@postgres:5432/innogen?sslmode=disable
+      RUN_SERVICE_PORT: "8082"
+      PISTON_BASE_URL: http://piston:2000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      piston:
+        condition: service_started
+
+  submission_service:
+    build:
+      context: .
+      args:
+        SERVICE_PATH: submission_service/cmd/api
+    container_name: innogen-submission
+    ports:
+      - "${SUBMISSION_SERVICE_HOST_PORT:-8083}:8083"
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgres://innogen:innogen@postgres:5432/innogen?sslmode=disable
+      REDIS_ADDR: redis:6379
+      SUBMISSION_SERVICE_PORT: "8083"
+      REPO_SERVICE_URL: http://repo_service:8084
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  submission_worker:
+    build:
+      context: .
+      args:
+        SERVICE_PATH: submission_service/cmd/worker
+    container_name: innogen-worker
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgres://innogen:innogen@postgres:5432/innogen?sslmode=disable
+      REDIS_ADDR: redis:6379
+      PISTON_BASE_URL: http://piston:2000
+      REPO_SERVICE_URL: http://repo_service:8084
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      piston:
+        condition: service_started
+      repo_service:
+        condition: service_started
+
+  repo_service:
+    build:
+      context: .
+      args:
+        SERVICE_PATH: repo_service/cmd
+    container_name: innogen-repo
+    ports:
+      - "${REPO_SERVICE_HOST_PORT:-8084}:8084"
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgres://innogen:innogen@postgres:5432/innogen?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:-innogen-dev-secret}
+      REPO_SERVICE_PORT: "8084"
+      PISTON_BASE_URL: http://piston:2000
+      GITHUB_APP_ID: ${GITHUB_APP_ID:-}
+      GITHUB_PRIVATE_KEY_PATH: /app/secrets/github-key.pem
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
+      GITHUB_DEFAULT_BRANCH: ${GITHUB_DEFAULT_BRANCH:-main}
+      GITHUB_API_BASE_URL: ${GITHUB_API_BASE_URL:-https://api.github.com}
+      GITHUB_OAUTH_CLIENT_ID: ${GITHUB_OAUTH_CLIENT_ID:-}
+      GITHUB_OAUTH_CLIENT_SECRET: ${GITHUB_OAUTH_CLIENT_SECRET:-}
+      GITHUB_OAUTH_REDIRECT_URL: ${GITHUB_OAUTH_REDIRECT_URL:-http://localhost:8080/github/oauth/callback}
+      GITHUB_OAUTH_FRONTEND_REDIRECT_URL: ${GITHUB_OAUTH_FRONTEND_REDIRECT_URL:-http://localhost:5173/github}
+    volumes:
+      - ${GITHUB_PRIVATE_KEY_PATH:-./secrets/placeholder}:/app/secrets/github-key.pem:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  innogen_postgres_data:
+  innogen_redis_data:
+  innogen_piston_data:
