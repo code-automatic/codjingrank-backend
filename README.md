@@ -53,3 +53,15 @@ SCHEMA_TEST_CONTAINER=codjingrank-schema-test SCHEMA_TEST_USER=postgres \
 The runner creates and drops its own temporary database. `schema.sql` is a
 **destructive clean bootstrap**, never a migration for an existing database.
 Historical migrations and demo seeds must not be applied to the new product.
+
+## Frontend mock contract
+
+Use [learner OpenAPI](docs/openapi_fe.yaml) for learner screens and
+[full Gateway/admin OpenAPI](docs/openapi.yaml) for admin screens. The
+[frontend contract](docs/FRONTEND_API_CONTRACT.md) covers F01–F13, permissions,
+examples and schema-integration gaps. These are target `/api/v1` contracts;
+current Go routes do not implement them yet.
+
+```bash
+npx @stoplight/prism-cli mock docs/openapi_fe.yaml -p 4010
+```

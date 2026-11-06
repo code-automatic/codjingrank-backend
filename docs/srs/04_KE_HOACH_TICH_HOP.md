@@ -7,6 +7,18 @@ Repository/GitHub/commit flow. Sau khi worker ghi `Accepted`, worker gọi
 `ai_service` nội bộ; AI review không ảnh hưởng verdict hoặc leaderboard. Forum
 là service riêng, không chạy trong judge worker.
 
+
+## Contract mock frontend — cập nhật 07/11/2026
+
+Nguồn API target duy nhất: [OpenAPI đầy đủ](../openapi.yaml) (94 operation, có
+admin) và [learner projection](../openapi_fe.yaml) (42 operation). Hướng dẫn
+mock/UUID/schema gaps tại [frontend contract](../FRONTEND_API_CONTRACT.md).
+Mọi operation target-not-implemented; API đã có route root vẫn cần tích hợp
+UUID/schema và prefix v1. Không dùng route Subject/Session/Lesson/GitHub đã xóa.
+Database mới dùng chung, DATABASE_URL; không tách Auth/Judge database. Các
+đoạn kế hoạch gốc dưới đây chỉ tham khảo khi mâu thuẫn baseline mới. Optional
+password-reset/avatar/bio cần schema extension; không coi mock là đã làm BE.
+
 ## 1. Owner và hỗ trợ
 
 | Người | Owner chính | Reviewer / kiểm tra tích hợp |
@@ -26,7 +38,7 @@ AI hỗ trợ toàn dự án nhưng mỗi lượt làm bám một task/owner c�
 - Một Go module, một bộ phiên bản backend; frontend một package.json và lockfile. CI kiểm tra gofmt, go vet, golangci-lint, go test, TypeScript, lint và next build. Go test -race cho logic concurrency trên runner hỗ trợ; PostgreSQL/Redis thật cho integration tests.
 - Biến môi trường thống nhất trong .env.example không có secret: AUTH_DATABASE_URL, JUDGE_DATABASE_URL, REDIS_URL, JWT_ISSUER, JWT_AUDIENCE, JWT_PRIVATE_KEY_PATH, JWT_PUBLIC_KEY_PATH, INTERNAL_SERVICE_TOKEN, AUTH_INTERNAL_URL, CORE_INTERNAL_URL, RUN_INTERNAL_URL, JUDGE_INTERNAL_URL, WEB_ORIGIN. NEXT_PUBLIC_* chỉ chứa dữ liệu công khai; tuyệt đối không DB URL/secret.
 - Port dev nội bộ đề xuất: Next 3000; Auth 8081; Core 8082; Run 8083; Judge API 8084; PostgreSQL 5432; Redis 6379. Docker dùng service DNS, không localhost để liên lạc giữa container. Chỉ Next public ở môi trường demo, backend giữ mạng nội bộ.
-- Next proxy theo route map cụ thể: /auth/*, /users/me*, /admin/users* → Auth; /problems/{slug}/run và /runs/* → Run; POST /problems/{slug}/submissions, GET /submissions/jobs/* → Judge; còn lại Core. Không chuyển GET /submissions/{id} sang Judge. /internal/* không public. Cookie Set-Cookie/Origin/Authorization phải được bảo toàn và test.
+- Gateway v1 dùng prefix `/api/v1` làm canonical public contract và strip prefix khi forward; `GET /api/v1/users/me` rewrite riêng tới Auth `/auth/me`. Chỉ map các auth route hiện có, không map GitHub auth. Run: `POST /api/v1/run` → Run; Submit/history/stats → Submission; catalog/admin legacy → Gateway; Forum/Leaderboard/AI là target sau migration. Giữ root aliases trong migration, không map `/internal/*` ra public. Bảo toàn `Set-Cookie`, `Origin`, request ID; Bearer chỉ dùng Gateway xác thực và không forward sang upstream protected. Test cookie path khi bật v1. Run vẫn synchronous, Submit vẫn Pending → Redis → worker → verdict.
 - TV3 quản lý migration Judge, TV1 Auth. Migration đã merge không sửa lại; thêm migration mới. Unique/check/FK baseline giữ nguyên. Test dựng DB sạch và nâng cấp DB có dữ liệu trước merge.
 - Sandbox nhận input qua stdin, không mount DB/secret/output mong đợi. Giới hạn CPU/memory/pids/file/output, network none, non-root, read-only, seccomp, cleanup. Java có cấu hình JVM phù hợp memory limit.
 - Job và run có user_id, chỉ chủ sở hữu xem; queue giao lại không tạo AC trùng. Giới hạn timeout, retry, TTL, concurrency phải dùng config chung và kiểm thử khi Redis/worker lỗi.

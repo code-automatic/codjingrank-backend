@@ -1,69 +1,55 @@
-# RinnoGen / Innogen Backend AI Context
+# Backend AI Context
 
-## Current repository
+Updated 2026-11-07. See [PROJECT_STATE](../PROJECT_STATE.md) for tested revision
+and current branch; [DECISIONS](DECISIONS.md) for product authority.
 
-This is a Go monorepo for a LeetCode-like programming practice platform. The
-current production-shaped catalog is:
+## Implemented repository facts
 
-`Subject -> Session -> Lesson -> Problem`
+Go monorepo (`net/http`, pgx, shared packages), Gateway :8080, Auth :8081,
+Run :8082, Submission API :8083 and worker. One shared PostgreSQL target schema
+uses UUIDs and Package → three Levels → Problem. `schema.sql` is a destructive
+fresh-database bootstrap, not an old-data migration.
 
-The planned product catalog is `Topic/Package -> Level (Easy/Medium/Hard) ->
-Problem`; that is a migration target, not the current schema.
+Repository/GitHub and Subject/Session/Lesson runtime flows were removed. Current
+Go SQL/DTOs still expect old IDs/columns and are not yet integrated with target
+schema. Root routes exist for Auth, problems, Run, Submit/history/stats and
+retained admin handlers; their existence does not establish new-schema operation.
+`/api/v1`, Forum, AI service, catalog progress and target leaderboard are not
+implemented. Existing `/me/stats` is not proof of target ranking support.
 
-## Services and runtime
+Run is synchronous sample execution via Piston. Submit persists Pending, uses
+Redis LPUSH/BRPOP, then worker/Piston/persisted verdict. No Asynq rewrite.
+Shared success/error envelopes and routing 404/405 handling are implemented;
+HEAD/204 are bodyless. No live DB/Redis/Piston integration claim.
 
-- `api_gateway` (`:8080`): public entry point, curriculum/problem handlers,
-  reverse proxies, CORS, request ID, rate limit.
-- `auth_service` (`:8081`): bcrypt users, HS256 access JWT, rotated HttpOnly
-  refresh cookie, GitHub App connection.
-- `run_service` (`:8082`): synchronous sample execution through Piston.
-- `submission_service` (`:8083`) + worker: creates Pending submissions, Redis
-  list queue, hidden-test judging and verdict updates. The old best-effort repo
-  commit still exists in code; its planned replacement is an automatic internal
-  AI review call only after persisting an Accepted verdict.
-- `repo_service` (`:8084`): legacy repositories, GitHub App/OAuth, commits and
-  webhook; this flow is scheduled for removal.
-- Shared code is under `shared/`; PostgreSQL schema source is `schema.sql`.
+## Target contracts for frontend mocks
 
-Redis and GitHub integration already exist. Do not describe them as future
-work. The current queue is Redis `LPUSH/BRPOP`, not Asynq.
+- [Full OpenAPI](openapi.yaml): Gateway learner/admin routes.
+- [Learner OpenAPI](openapi_fe.yaml): matching projection without admin-only
+  schemas or hidden runtime data.
+- [Frontend guide](FRONTEND_API_CONTRACT.md): workflow, schema gaps, limits,
+  auth, compatibility and feature coverage. All operations are target-only.
+- [Response contract](fe/RESPONSE_CONTRACT.md): the approved envelope;
+  `error` is a string, `details` always present, numeric code matches HTTP.
 
-## Current API facts
+Use camelCase, UUIDs and UTC. Do not copy old SRS snake_case/category examples
+or pretend stripping a prefix makes old integer DTOs match new schema.
+Root/v1 aliases must share a tested contract or an explicit adapter plan.
 
-- Gateway paths have no `/api/v1` prefix: `/subjects`, `/problems/{slug}`,
-  `/run`, `/submit`, `/me/stats` and `/me/submissions`.
-- Response envelope confirmed 2026-11-07 in `docs/DECISIONS.md`: success
-  `{status, code, message, data}`, error `{status, code, message, error, details}`.
-  Numeric `code` equals HTTP status; `error` is a string; `details` is nullable
-  but present. Verdict/AI states belong inside `data`; `204` has no body.
-  Do not introduce nested `{error:{code,message}}` or new envelope fields.
-  `shared/response.Router` now envelopes generated 404/405 errors; boundary
-  tests cover auth, rate-limit, panic, proxy errors and admin dispatch. Live
-  database integration remains unverified.
-- IDs are integer for users/problems/languages; submission IDs are UUIDs.
-- A Run response is synchronous. Submit inserts `Pending` before judging and
-  persists every final verdict, including failures.
-- There is no leaderboard list API, AI code review, forum, or level-unlock
-  implementation yet. `/me/stats` computes only the current user's summary/rank.
-- Target behavior keeps judge verdicts and execution mechanics, changes schema
-  for Package/Level/progress/forum/AI review, removes repository/GitHub logic,
-  and keeps AI score separate from leaderboard ranking.
-- Confirmed: Run and non-Accepted submissions never trigger AI review. AI
-  failure does not change the judge verdict or ranking. Repository/GitHub flow
-  removal is approved as target scope, but implementation has not been authorized.
-- Documentation plan window: 2026-11-06 through 2026-11-22. This is a target
-  schedule, not evidence that implementation has started or will fit available
-  staffing.
-- Planned new boundaries are `forum_service` for posts/comments/likes and
-  `ai_service` for code-quality review. Neither service exists yet; do not claim
-  their routes are live.
+## Invariants and open integration work
 
-## Working rules
+AI only starts after persisted Accepted; AI failures/score never change verdict,
+progress or leaderboard. Public AI API is GET only. Ranking uses distinct solved
+problems, then distinct Accepted solutions, with RANK ties and UTC first-solve
+periods. Level unlock is dynamic, checks all prior levels; empty levels do not
+block. Published judge inputs stay frozen even after archive; clone for changes.
 
-- Use `net/http`, pgx, and existing shared packages; do not invent a new service
-  or silently replace the architecture.
-- Keep logs/errors in English, Go names camelCase, and run `gofmt` plus
-  `go test ./...` after code changes.
-- Treat `schema.sql`, Go routes/DTOs, and `docs/FRONTEND_API_CONTRACT.md` as
-  current contract. Treat the SRS in `code-automatic/srs` as proposed target
-  behavior; check `docs/BACKEND_REALITY_AUDIT.md` before implementing it.
+Hidden tests, wrappers, internal/provider diagnostics and secrets never reach
+learners. Owner/admin checks protect source and AI; outsiders get404. Gateway is
+the only browser entrypoint. Keep current HS256 pending any separate JWT
+migration; the transport design alone does not implement RS256/JWKS.
+
+Schema gaps: avatar/bio persistence and reset-password token/email support.
+AI provider/rubric/quota/retry policy remains open; dimensions are dynamic in
+mock DTOs. Optional features are documented, not silently marked complete.
+Use a dedicated project test database; never HAPI or another project's services.

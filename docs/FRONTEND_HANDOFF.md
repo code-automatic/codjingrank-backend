@@ -1,38 +1,11 @@
-# Frontend Integration Guide (v2.0)
+# Frontend Handoff — v2.1
 
-Updated 2026-11-05. The current gateway routes are the source of truth for
-what can be called today. The Package/Level, Forum, Leaderboard and AI routes
-are target contracts in `docs/FRONTEND_API_CONTRACT.md`; Forum/Leaderboard/AI
-are chưa implement and are not live yet.
+The frontend mock must be generated from [`openapi_fe.yaml`](openapi_fe.yaml). Admin mock screens use [`openapi.yaml`](openapi.yaml). The route inventory and product rules are summarized in [`FRONTEND_API_CONTRACT.md`](FRONTEND_API_CONTRACT.md).
 
-## Base URL
-- Development: `http://localhost:8080`
+```bash
+npx @stoplight/prism-cli mock docs/openapi_fe.yaml -p 4010
+```
 
-## API Documentation
-- Swagger UI: `http://localhost:8080/docs/fe`
-- OpenAPI Spec: `http://localhost:8080/docs/openapi.yaml`
+All operations are marked `x-contract-status: target-not-implemented`; a mock response is not evidence that the Go Gateway route is live. Use `/api/v1`, UUIDs, camelCase and the shared response envelope. Keep access tokens in memory, send `credentials: include`, and never send `X-User-*` headers.
 
-## Auth Flow
-1. POST /auth/register or POST /auth/login → get accessToken
-2. Authorization: Bearer <accessToken> on protected routes
-
-## Response Envelope
-All responses use: `{ status, code, message, data }` for success, `{ status, code, message, error, details }` for errors.
-
-## Business Statuses
-- submission.status: Pending, Running, Accepted, Wrong Answer, etc.
-- run.status: Accepted, Wrong Answer, Compilation Error, etc.
-- aiReview.status (target): queued, running, completed, failed
-
-Accepted is returned from the judge without waiting for AI. AI is requested
-only after Accepted and its score is never used for ranking. Run and non-
-Accepted verdicts do not request a review.
-
-## Removed target flow
-
-Do not build repository creation, GitHub connection, commit links, or webhook
-screens. Those routes remain in the legacy OpenAPI snapshot only and are being
-removed from the product.
-
-## Common Routes
-See Swagger UI for full API reference.
+The frontend must treat Run as synchronous sample execution, Submit as Pending → polling → verdict, and AI review as a separate Accepted-only read model. AI score does not affect leaderboard ranking. Do not build repository creation, GitHub connection, Subject/Session/Lesson navigation, or legacy root routes into the new client.
