@@ -1,8 +1,8 @@
 # Project State
 
-Updated: 2026-11-06
-Branch: `chore/remove-legacy-code`, runtime cleanup `65630ab`, legacy artifacts
-`9d5ff9a`; based on `feat/database-schema` at `ff17e0b`.
+Updated: 2026-11-07
+Branch: `fix/api-envelope`, based on `main` at `772398c`; runtime cleanup
+`65630ab`, legacy artifacts `9d5ff9a`; schema baseline at `ff17e0b`.
 
 ## Objective and approved baseline
 
@@ -13,6 +13,31 @@ AI will run only after persisted Accepted, independently of verdict and ranking.
 The baseline is [decisions](docs/DECISIONS.md),
 [AI context](docs/AI_CONTEXT.md) and the
 [approved schema design](docs/superpowers/specs/2026-11-06-database-schema-design.md).
+
+## Current task: API envelope implementation
+
+- Branch `fix/api-envelope` from `main` `772398c`; runtime commits `cf7a7a8`
+  (shared router/bodyless responses) and `ee315aa` (HTTP service integration).
+- Approved DECISIONS shape is unchanged. Generated 404/405 now use the JSON
+  envelope, preserve Allow and route parameters, leave redirects/HTML intact.
+  HEAD and 204 are bodyless. Admin authorization remains before dispatch.
+- Boundary tests cover auth, rate limiting, panic and proxy transport failure;
+  Wrong Answer stays a successful response with business status inside data.
+- `go test -count=1 ./...`, `go vet ./...`, `go build ./...`, affected packages
+  with `go test -race`, formatting and `git diff --check`: passed on runtime tree
+  committed as `ee315aa`. No database/Redis/Piston integration run.
+- Shared and integration staged GitNexus detection reports CRITICAL due to shared
+  response callers/service entrypoints. Reviewed affected scope; judge unchanged.
+- Independent reviewer attempted twice but disconnected. Primary code review
+  completed; external review still needed before merging this branch.
+- All commits in `feat/database-schema` and `chore/remove-legacy-code` already
+  belong to main. `docs/api-envelope` has no unique commit; implementation and
+  scoped envelope documentation are consolidated on `fix/api-envelope`.
+- Merge approved PRs with a merge commit, preserving every original SHA; no
+  squash/rebase. GitHub already allows merge commits. No push/PR/merge performed
+  for the current branch; no repo-wide merge settings changed.
+- Preserve unrelated docs edits and `outputs/`. Live UUID/schema integration,
+  `/api/v1` routing and full backend readiness remain separate tasks.
 
 ## Completed
 

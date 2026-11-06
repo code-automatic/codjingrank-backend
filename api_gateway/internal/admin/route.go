@@ -2,6 +2,8 @@ package admin
 
 import (
 	"net/http"
+
+	"innogen-backend/shared/response"
 )
 
 // RegisterAdminRoutes registers all admin CRUD routes on the main mux under /admin/ prefix.
@@ -36,5 +38,5 @@ func RegisterAdminRoutes(mux *http.ServeMux, h *AdminHandler, jwtSecret string) 
 	adminMux.HandleFunc("POST /problems/{problemId}/tags", h.CreateProblemTag)
 	adminMux.HandleFunc("DELETE /problems/{problemId}/tags/{tagId}", h.DeleteProblemTag)
 
-	mux.Handle("/admin/", http.StripPrefix("/admin", adminMW(adminMux)))
+	mux.Handle("/admin/", http.StripPrefix("/admin", adminMW(response.Router(adminMux))))
 }

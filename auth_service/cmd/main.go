@@ -42,7 +42,7 @@ func main() {
 	addr := ":" + cfg.AuthServicePort
 	log.Info("auth-service listening on " + addr)
 
-	if err := http.ListenAndServe(addr, mux); err != nil {
+	if err := http.ListenAndServe(addr, response.Router(mux)); err != nil {
 		log.Error("server terminated with error", slog.String("error", err.Error()))
 		os.Exit(1)
 	}

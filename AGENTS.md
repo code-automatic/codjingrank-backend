@@ -49,6 +49,13 @@ make test              # go test ./...
 - Default config values are in `shared/config/config.go`
 - Infrastructure dependencies (Postgres, Redis) are in `docker-compose.yml`
 
+## Pull Request Integration
+
+- Merge approved PRs using **Create a merge commit** (`gh pr merge --merge`).
+- Preserve every branch commit and its SHA; do not squash or rebase on merge.
+- Open a PR when its scoped commits and required checks are ready for review;
+  merge only after review findings and required checks are resolved.
+
 ## Database
 
 - PostgreSQL 16
