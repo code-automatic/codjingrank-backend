@@ -197,7 +197,7 @@ BEGIN
 END;
 $$;
 CREATE TRIGGER trg_published_package_guard
-BEFORE UPDATE OF status ON packages
+BEFORE INSERT OR UPDATE OF status ON packages
 FOR EACH ROW EXECUTE FUNCTION validate_published_package();
 
 CREATE OR REPLACE FUNCTION validate_published_problem()
@@ -214,7 +214,7 @@ BEGIN
 END;
 $$;
 CREATE TRIGGER trg_published_problem_guard
-BEFORE UPDATE OF status ON problems
+BEFORE INSERT OR UPDATE OF status ON problems
 FOR EACH ROW EXECUTE FUNCTION validate_published_problem();
 
 CREATE TABLE tags (
@@ -300,11 +300,13 @@ CREATE OR REPLACE FUNCTION prevent_published_test_mutation()
 RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE
     target_problem uuid;
-    target_status problem_status;
+    was_published boolean;
 BEGIN
     target_problem := COALESCE(NEW.problem_id, OLD.problem_id);
-    SELECT status INTO target_status FROM problems WHERE id = target_problem;
-    IF target_status = 'published' THEN
+    SELECT published_at IS NOT NULL INTO was_published FROM problems WHERE id = target_problem;
+    IF was_published OR (TG_OP = 'UPDATE' AND EXISTS (
+        SELECT 1 FROM problems WHERE id = OLD.problem_id AND published_at IS NOT NULL
+    )) THEN
         RAISE EXCEPTION 'Test cases are immutable after problem publication';
     END IF;
     RETURN COALESCE(NEW, OLD);
@@ -343,8 +345,8 @@ CREATE TABLE submissions (
         pass_count >= 0 AND total_testcases >= 0 AND pass_count <= total_testcases AND
         attempt_count >= 0
     ),
-    CONSTRAINT chk_submissions_claim CHECK (status <> 'Running' OR claimed_at IS NOT NULL)
-    ,CONSTRAINT fk_submission_problem_language FOREIGN KEY (problem_id, language_id)
+    CONSTRAINT chk_submissions_claim CHECK (status <> 'Running' OR claimed_at IS NOT NULL),
+    CONSTRAINT fk_submission_problem_language FOREIGN KEY (problem_id, language_id)
         REFERENCES problem_languages (problem_id, language_id)
 );
 CREATE INDEX idx_submissions_queue ON submissions (status, claimed_at, created_at)
