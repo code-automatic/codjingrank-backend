@@ -26,6 +26,10 @@ type ErrorEnvelope struct {
 
 // Success writes a standardized success response.
 func Success(w http.ResponseWriter, status int, data any, message string) {
+	if status == http.StatusNoContent {
+		NoContent(w)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if message == "" {
@@ -56,6 +60,8 @@ func ErrorCode(status int) string {
 		return "FORBIDDEN"
 	case http.StatusNotFound:
 		return "NOT_FOUND"
+	case http.StatusMethodNotAllowed:
+		return "METHOD_NOT_ALLOWED"
 	case http.StatusConflict:
 		return "CONFLICT"
 	case http.StatusRequestEntityTooLarge:
