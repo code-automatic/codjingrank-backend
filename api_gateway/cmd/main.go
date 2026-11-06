@@ -110,7 +110,7 @@ func main() {
 			middleware.RequestID(
 				middleware.CORS(cfg.CORSAllowedOrigins)(
 					middleware.BodyLimit(cfg.MaxBodyBytes)(
-						middleware.RateLimit(rateLimiter)(mux),
+						middleware.RateLimit(rateLimiter)(response.Router(mux)),
 					),
 				),
 			),
