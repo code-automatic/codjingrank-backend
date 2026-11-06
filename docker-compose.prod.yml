@@ -15,9 +15,6 @@ services:
   submission_service:
     ports: []
 
-  repo_service:
-    ports: []
-
   postgres:
     ports: []
 

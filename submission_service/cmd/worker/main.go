@@ -3,11 +3,9 @@ package main
 import (
 	"context"
 	"log/slog"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"innogen-backend/shared/config"
 	"innogen-backend/shared/database"
@@ -41,9 +39,7 @@ func main() {
 
 	repo := repository.New(pool)
 	pistonClient := piston.NewClient(cfg.PistonBaseURL)
-	httpClient := &http.Client{Timeout: 30 * time.Second}
-	repoServiceURL := cfg.RepoServiceURL
-	w := worker.New(log, repo, pistonClient, q, repoServiceURL, httpClient)
+	w := worker.New(log, repo, pistonClient, q)
 
 	log.Info("submission-worker started")
 	w.Run(ctx)

@@ -1,12 +1,9 @@
 package worker
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
-	"net/http"
 
 	"innogen-backend/shared/constants"
 	"innogen-backend/shared/judge"
@@ -18,23 +15,19 @@ import (
 
 // Worker processes submission jobs from the Redis queue.
 type Worker struct {
-	log            *slog.Logger
-	repo           *repository.SubmissionRepository
-	pistonClient   *piston.Client
-	queue          *queue.Queue
-	repoServiceURL string
-	httpClient     *http.Client
+	log          *slog.Logger
+	repo         *repository.SubmissionRepository
+	pistonClient *piston.Client
+	queue        *queue.Queue
 }
 
 // New creates a new Worker.
-func New(log *slog.Logger, repo *repository.SubmissionRepository, pistonClient *piston.Client, q *queue.Queue, repoServiceURL string, httpClient *http.Client) *Worker {
+func New(log *slog.Logger, repo *repository.SubmissionRepository, pistonClient *piston.Client, q *queue.Queue) *Worker {
 	return &Worker{
-		log:            log,
-		repo:           repo,
-		pistonClient:   pistonClient,
-		queue:          q,
-		repoServiceURL: repoServiceURL,
-		httpClient:     httpClient,
+		log:          log,
+		repo:         repo,
+		pistonClient: pistonClient,
+		queue:        q,
 	}
 }
 
@@ -238,29 +231,6 @@ func (w *Worker) processJob(ctx context.Context, submissionID string) error {
 		slog.Int("passed", passed),
 		slog.Int("total", len(testCases)),
 	)
-
-	// Trigger real commit flow for Accepted submissions via HTTP
-	if overallStatus == constants.StatusAccepted {
-		commitReq := map[string]interface{}{
-			"submissionId": sub.ID,
-			"userId":       sub.UserID,
-			"problemId":    sub.ProblemID,
-			"languageId":   sub.LanguageID,
-			"code":         sub.Code,
-		}
-		body, _ := json.Marshal(commitReq)
-		httpReq, _ := http.NewRequestWithContext(ctx, http.MethodPost, w.repoServiceURL+"/internal/commits/accepted-submission", bytes.NewReader(body))
-		httpReq.Header.Set("Content-Type", "application/json")
-		resp, err := w.httpClient.Do(httpReq)
-		if err != nil {
-			w.log.Error("commit request failed (best-effort)", slog.String("submissionId", submissionID), slog.String("error", err.Error()))
-		} else {
-			resp.Body.Close()
-			if resp.StatusCode != http.StatusOK {
-				w.log.Error("commit request returned non-OK", slog.String("submissionId", submissionID), slog.Int("status", resp.StatusCode))
-			}
-		}
-	}
 
 	return nil
 }

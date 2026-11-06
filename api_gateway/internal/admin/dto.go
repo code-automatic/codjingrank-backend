@@ -25,49 +25,6 @@ type UpdateLanguageRequest struct {
 	IsActive        *bool   `json:"isActive"`
 }
 
-// --- Subjects ---
-type CreateSubjectRequest struct {
-	Title       string  `json:"title"`
-	Slug        string  `json:"slug"`
-	Color       *string `json:"color"`
-	IsPublished *bool   `json:"isPublished"`
-	LanguageID  *int    `json:"languageId"`
-}
-
-type UpdateSubjectRequest struct {
-	Title       *string `json:"title"`
-	Slug        *string `json:"slug"`
-	Color       *string `json:"color"`
-	IsPublished *bool   `json:"isPublished"`
-	LanguageID  *int    `json:"languageId"`
-}
-
-// --- Sessions ---
-type CreateSessionRequest struct {
-	Title       string  `json:"title"`
-	Description *string `json:"description"`
-	OrderIndex  int     `json:"orderIndex"`
-}
-
-type UpdateSessionRequest struct {
-	Title       *string `json:"title"`
-	Description *string `json:"description"`
-	OrderIndex  *int    `json:"orderIndex"`
-}
-
-// --- Lessons ---
-type CreateLessonRequest struct {
-	Title      string  `json:"title"`
-	ContentMD  *string `json:"contentMd"`
-	OrderIndex int     `json:"orderIndex"`
-}
-
-type UpdateLessonRequest struct {
-	Title      *string `json:"title"`
-	ContentMD  *string `json:"contentMd"`
-	OrderIndex *int    `json:"orderIndex"`
-}
-
 // --- Problems ---
 type CreateProblemRequest struct {
 	Slug             string          `json:"slug"`
@@ -99,12 +56,6 @@ type UpdateProblemRequest struct {
 	DriverCode       *string         `json:"driverCode"`
 	SolutionFileName *string         `json:"solutionFileName"`
 	SampleTestCases  json.RawMessage `json:"sampleTestCases"`
-}
-
-// --- Lesson-Problems ---
-type CreateLessonProblemRequest struct {
-	ProblemID  int `json:"problemId"`
-	OrderIndex int `json:"orderIndex"`
 }
 
 // --- Test Cases ---

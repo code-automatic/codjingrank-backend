@@ -162,11 +162,6 @@ func (s *AuthService) Logout(ctx context.Context, w http.ResponseWriter, r *http
 	return nil
 }
 
-// FrontendURL returns the configured frontend URL.
-func (s *AuthService) FrontendURL() string {
-	return s.cfg.FrontendURL
-}
-
 func (s *AuthService) setRefreshCookie(w http.ResponseWriter, token string) {
 	maxAge := s.cfg.RefreshTokenTTLDays * 86400
 	cookie := &http.Cookie{
@@ -216,35 +211,6 @@ func generateRefreshToken() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-// GithubConnectURL generates the GitHub App installation URL with a state JWT.
-func (s *AuthService) GithubConnectURL(userID int, userEmail string) string {
-	stateToken, _ := s.jwtSvc.GenerateToken(userID, userEmail, "user", 5)
-	return s.cfg.GitHubAppInstallURL + "?state=" + stateToken
-}
-
-// HandleGithubCallback processes the GitHub OAuth callback.
-// Returns the frontend redirect URL.
-func (s *AuthService) HandleGithubCallback(ctx context.Context, installationID string, stateToken string) (string, error) {
-	// Parse state JWT to get userID
-	claims, err := s.jwtSvc.ParseToken(stateToken)
-	if err != nil {
-		return s.cfg.FrontendURL + "/settings?github_status=error&message=invalid_state", nil
-	}
-
-	// Upsert github_account link
-	if err := s.repo.UpsertGithubAccount(ctx, claims.UserID, installationID); err != nil {
-		return "", err
-	}
-
-	// Try backfill owner from webhook data (if webhook arrived first)
-	owner, ownerType, err := s.repo.GetGithubInstallationOwner(ctx, installationID)
-	if err == nil && owner != "" {
-		_ = s.repo.UpdateGithubAccountOwner(ctx, claims.UserID, owner, ownerType, "active")
-	}
-
-	return s.cfg.FrontendURL + "/settings?github_status=connected", nil
-}
-
 // Register creates a new user account.
 func (s *AuthService) Register(ctx context.Context, req dto.RegisterRequest) (*dto.LoginResponse, error) {
 	if msg := req.Validate(); msg != "" {
@@ -281,23 +247,5 @@ func (s *AuthService) Register(ctx context.Context, req dto.RegisterRequest) (*d
 	return &dto.LoginResponse{
 		AccessToken: token,
 		User:        dto.ToUserResponse(user),
-	}, nil
-}
-
-// GithubStatus returns the GitHub connection status for a user.
-func (s *AuthService) GithubStatus(ctx context.Context, userID int) (*dto.GithubStatusResponse, error) {
-	instID, owner, ownerType, status, err := s.repo.GetGithubAccountByUserID(ctx, userID)
-	if err != nil {
-		return nil, err
-	}
-	if instID == "" {
-		return &dto.GithubStatusResponse{Connected: false}, nil
-	}
-	return &dto.GithubStatusResponse{
-		Connected:       true,
-		InstallationID:  instID,
-		GithubOwner:     owner,
-		GithubOwnerType: ownerType,
-		Status:          status,
 	}, nil
 }

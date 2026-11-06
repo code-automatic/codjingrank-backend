@@ -74,37 +74,6 @@ func (h *Handler) CurrentUser(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, http.StatusOK, resp, "Current user retrieved successfully")
 }
 
-// GithubConnect handles GET /auth/github/connect
-func (h *Handler) GithubConnect(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r)
-	if !ok {
-		response.ErrorSimple(w, http.StatusUnauthorized, "Unauthorized")
-		return
-	}
-	email, _ := middleware.GetUserEmail(r)
-	url := h.svc.GithubConnectURL(userID, email)
-	response.JSON(w, http.StatusOK, dto.GithubConnectResponse{InstallURL: url})
-}
-
-// GithubCallback handles GET /auth/github/callback (GitHub redirects here)
-func (h *Handler) GithubCallback(w http.ResponseWriter, r *http.Request) {
-	installationID := r.URL.Query().Get("installation_id")
-	state := r.URL.Query().Get("state")
-
-	if installationID == "" || state == "" {
-		http.Redirect(w, r, h.svc.FrontendURL()+"/settings?github_status=error&message=missing_params", http.StatusFound)
-		return
-	}
-
-	redirectURL, err := h.svc.HandleGithubCallback(r.Context(), installationID, state)
-	if err != nil {
-		h.log.Error("github callback failed", slog.String("error", err.Error()))
-		http.Redirect(w, r, h.svc.FrontendURL()+"/settings?github_status=error&message=server_error", http.StatusFound)
-		return
-	}
-	http.Redirect(w, r, redirectURL, http.StatusFound)
-}
-
 // Register handles POST /auth/register.
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	var req dto.RegisterRequest
@@ -156,20 +125,4 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 		h.log.Error("logout failed", slog.String("error", err.Error()))
 	}
 	response.Success(w, http.StatusOK, nil, "Logout successful")
-}
-
-// GithubStatus handles GET /auth/github/status
-func (h *Handler) GithubStatus(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r)
-	if !ok {
-		response.ErrorSimple(w, http.StatusUnauthorized, "Unauthorized")
-		return
-	}
-	resp, err := h.svc.GithubStatus(r.Context(), userID)
-	if err != nil {
-		h.log.Error("github status failed", slog.String("error", err.Error()))
-		response.ErrorSimple(w, http.StatusInternalServerError, "Internal server error")
-		return
-	}
-	response.JSON(w, http.StatusOK, resp)
 }

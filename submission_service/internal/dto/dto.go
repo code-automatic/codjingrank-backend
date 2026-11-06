@@ -50,9 +50,6 @@ type SubmissionListItem struct {
 	ErrorMessage   *string `json:"errorMessage"`
 	PassCount      int     `json:"passCount"`
 	TotalTestcases int     `json:"totalTestcases"`
-	RepoPath       *string `json:"repoPath"`
-	CommitSha      *string `json:"commitSha"`
-	CommitUrl      *string `json:"commitUrl"`
 	CreatedAt      string  `json:"createdAt"`
 	JudgedAt       *string `json:"judgedAt"`
 }
@@ -70,9 +67,6 @@ func ToSubmissionListItem(s *models.Submission) SubmissionListItem {
 		ErrorMessage:   s.ErrorMessage,
 		PassCount:      s.PassCount,
 		TotalTestcases: s.TotalTestcases,
-		RepoPath:       s.RepoPath,
-		CommitSha:      s.CommitSha,
-		CommitUrl:      s.CommitURL,
 		CreatedAt:      s.CreatedAt.Format(time.RFC3339),
 	}
 	if s.JudgedAt != nil {

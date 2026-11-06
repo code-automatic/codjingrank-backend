@@ -75,15 +75,3 @@ func ToUserResponse(u *models.User) UserResponse {
 		Role:     u.Role,
 	}
 }
-
-type GithubConnectResponse struct {
-	InstallURL string `json:"installUrl"`
-}
-
-type GithubStatusResponse struct {
-	Connected       bool   `json:"connected"`
-	InstallationID  string `json:"installationId,omitempty"`
-	GithubOwner     string `json:"githubOwner,omitempty"`
-	GithubOwnerType string `json:"githubOwnerType,omitempty"`
-	Status          string `json:"status,omitempty"`
-}

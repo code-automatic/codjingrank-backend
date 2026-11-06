@@ -7,7 +7,6 @@ import (
 	"os"
 
 	"innogen-backend/api_gateway/internal/admin"
-	"innogen-backend/api_gateway/internal/curriculum"
 	"innogen-backend/api_gateway/internal/middleware"
 	"innogen-backend/api_gateway/internal/problem"
 	"innogen-backend/api_gateway/internal/proxy"
@@ -30,9 +29,6 @@ func main() {
 		os.Exit(1)
 	}
 	defer pool.Close()
-
-	curriculumRepo := curriculum.NewCurriculumRepository(pool)
-	curriculumHandler := curriculum.NewHandler(curriculumRepo, log)
 
 	problemRepo := problem.NewProblemRepository(pool)
 	problemHandler := problem.NewHandler(problemRepo, log)
@@ -58,24 +54,11 @@ func main() {
 		log.Error("failed to create submission proxy", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
-	repoProxy, err := proxy.NewAuthenticatedProxy(cfg.RepoServiceURL, log)
-	if err != nil {
-		log.Error("failed to create repo proxy", slog.String("error", err.Error()))
-		os.Exit(1)
-	}
-	repoPublicProxy, err := proxy.NewProxy(cfg.RepoServiceURL, log)
-	if err != nil {
-		log.Error("failed to create repo public proxy", slog.String("error", err.Error()))
-		os.Exit(1)
-	}
-
 	proxySet := route.ProxySet{
 		AuthPublic: authPublicProxy,
 		Auth:       authProxy,
 		Run:        runProxy,
 		Submission: submissionProxy,
-		Repo:       repoProxy,
-		RepoPublic: repoPublicProxy,
 	}
 
 	mux := http.NewServeMux()
@@ -102,14 +85,6 @@ func main() {
 
 	// Health
 	mux.HandleFunc("GET /health", healthHandler)
-
-	// Curriculum routes
-	mux.HandleFunc("GET /subjects", curriculumHandler.ListSubjects)
-	mux.HandleFunc("GET /subjects/{slug}", curriculumHandler.GetSubject)
-	mux.HandleFunc("GET /subjects/{slug}/sessions", curriculumHandler.ListSessions)
-	mux.HandleFunc("GET /sessions/{id}/lessons", curriculumHandler.ListLessons)
-	mux.HandleFunc("GET /lessons/{id}", curriculumHandler.GetLesson)
-	mux.HandleFunc("GET /lessons/{id}/problems", curriculumHandler.ListLessonProblems)
 
 	// Problem routes
 	mux.HandleFunc("GET /problems/daily-challenge", problemHandler.GetDailyChallenge)
