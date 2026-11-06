@@ -1,92 +1,55 @@
-# RinnoGen Backend
+# Codjingrank Backend
 
-A LeetCode-like curriculum-based programming practice platform.
+Go monorepo for the standalone coding practice platform. Product baseline:
+[decisions](docs/DECISIONS.md), [SRS](docs/srs/01_SRS_Coding_Judge_Platform.md)
+and [frontend contract](docs/FRONTEND_API_CONTRACT.md).
 
-## Architecture
+## Structure and current status
 
-See [docs/be/ARCHITECTURE.md](docs/be/ARCHITECTURE.md) for full architecture documentation.
+- `api_gateway/`: public entrypoint, auth proxies, problem and admin handlers (:8080).
+- `auth_service/`: password authentication, JWT and refresh cookies (:8081).
+- `run_service/`: synchronous sample execution using Piston (:8082).
+- `submission_service/`: Pending submission API (:8083), Redis list queue and worker.
+- `shared/`: configuration, models, response envelope, middleware and judge helpers.
+- `schema.sql`: clean shared PostgreSQL 16 bootstrap for Package → Level → Problem.
+- `tests/schema/`: bootstrap and constraint checks.
 
-## CI/CD
+**Integration is pending:** surviving Go DTOs and SQL still use legacy integer IDs
+and column names. They compile but are not yet compatible with the new UUID schema.
+Do not treat the stack as an operational new-product release.
+The `/api/v1` façade, Forum, AI review and target leaderboard are not implemented.
 
-GitHub Actions validates on every push/PR: Go tests, Docker build, UI build, OpenAPI lint, secret scan.
+Repository/GitHub integration, Subject/Session/Lesson endpoints, old migrations,
+old seeds and the legacy Vite test UI have been removed. No replacement AI call
+has been added; the worker currently stops after persisting its verdict.
 
-```bash
-make ci    # Run all CI checks locally
-```
-
-## Docker
-
-```bash
-make compose-full-up    # Build and start all services
-make compose-full-down  # Stop all services
-make compose-full-logs  # View all logs
-```
-
-## Production Deployment
-
-See [docs/be/VPS_NGINX_DEPLOYMENT.md](docs/be/VPS_NGINX_DEPLOYMENT.md) for full VPS setup with Nginx + HTTPS.
-
-## API Documentation
-- Frontend: <http://localhost:8080/docs/fe>
-- Full: <http://localhost:8080/docs/be>
-
-## Quick Start
+## Development commands
 
 ```bash
-# 1. Start infrastructure
-make compose-up
-
-# 2. Apply schema and seed data
-make seed-dev
-
-# 3. Start all services (each in a separate terminal)
-make run-gateway &
-make run-auth &
-make run-runner &
-make run-submission &
-make run-submission-worker &
-make run-repo &
-
-# 4. Run E2E validation
-make e2e
+make fmt                     # gofmt
+make test                    # Go unit/contract tests
+make run-gateway             # start gateway
+make run-auth                # start authentication service
+make run-runner              # start synchronous runner
+make run-submission          # start submission API
+make run-submission-worker   # start queue consumer
+make compose-up              # PostgreSQL, Redis and Piston infrastructure
 ```
 
-## Development
+Config comes from environment variables in `shared/config/config.go`.
+Compose definitions exist for the retained services; starting them does not apply
+schema or complete schema integration. Judge behavior remains synchronous Run and
+Submit → Redis LPUSH/BRPOP → worker → Piston → persisted verdict.
+
+## Database checks
+
+Only use a dedicated PostgreSQL 16 test container:
 
 ```bash
-make fmt          # Format all Go files
-make tidy         # Clean up dependencies
-make test         # Run all tests
+SCHEMA_TEST_CONTAINER=codjingrank-schema-test SCHEMA_TEST_USER=postgres \
+  bash tests/schema/run.sh
 ```
 
-## Local Test UI
-
-A lightweight React UI for manual backend testing:
-
-```bash
-make test-ui-install   # Install dependencies
-make test-ui           # Start dev server (http://localhost:5173)
-make test-ui-build     # Production build
-```
-
-Features: Dashboard, Auth, Curriculum browser, Runner, Submissions, Admin CRUD, GitHub webhook notes.
-
-## API Endpoints (via API Gateway :8080)
-
-| Method | Path | Auth |
-|--------|------|------|
-| POST | /auth/login | No |
-| GET | /auth/me | Bearer |
-| GET | /subjects | No |
-| POST | /run | Bearer |
-| POST | /submit | Bearer |
-| GET | /submissions/{id} | Bearer |
-| GET | /me/submissions | Bearer |
-
-## Environment
-
-Copy `.env.example` to `.env` and adjust as needed:
-
-```bash
-cp .env.example .env
-```
+The runner creates and drops its own temporary database. `schema.sql` is a
+**destructive clean bootstrap**, never a migration for an existing database.
+Historical migrations and demo seeds must not be applied to the new product.

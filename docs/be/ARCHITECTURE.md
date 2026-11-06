@@ -1,5 +1,12 @@
 # RinnoGen Architecture
 
+> **Cleanup 06/11/2026:** Repository/GitHub and Subject/Session/Lesson code,
+> old migrations/seeds and the Vite test UI have been removed on
+> `chore/remove-legacy-code`. Any inventory of those implementations below is
+> historical. Retained Go persistence/DTOs still require UUID/schema integration;
+> `/api/v1`, Forum and AI remain target-only. See [project state](../../PROJECT_STATE.md).
+
+
 > **v2.0 target note (05/11/2026):** This document records the current Go
 > services and the approved migration boundary. Run/Submit/Judge/Piston/Redis
 > remain; Repository/GitHub/commit flow is legacy and will be removed. Forum and

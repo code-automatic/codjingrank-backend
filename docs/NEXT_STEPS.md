@@ -1,5 +1,12 @@
 # Next Steps — v2.0
 
+> **Cleanup 06/11/2026:** Repository/GitHub and Subject/Session/Lesson code,
+> old migrations/seeds and the Vite test UI have been removed on
+> `chore/remove-legacy-code`. Any inventory of those implementations below is
+> historical. Retained Go persistence/DTOs still require UUID/schema integration;
+> `/api/v1`, Forum and AI remain target-only. See [project state](../PROJECT_STATE.md).
+
+
 Updated: 2026-11-05. Window: 06/11/2026–22/11/2026.
 
 ## P0 — giữ luồng judge

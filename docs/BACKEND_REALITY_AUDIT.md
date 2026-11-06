@@ -1,5 +1,12 @@
 # Backend Reality Audit
 
+> **Cleanup 06/11/2026:** Repository/GitHub and Subject/Session/Lesson code,
+> old migrations/seeds and the Vite test UI have been removed on
+> `chore/remove-legacy-code`. Any inventory of those implementations below is
+> historical. Retained Go persistence/DTOs still require UUID/schema integration;
+> `/api/v1`, Forum and AI remain target-only. See [project state](../PROJECT_STATE.md).
+
+
 **Đối chiếu:** backend trong repository này với SRS mới tại `code-automatic/srs` (commit `a46397729ca56e74bf6dabf057c6ce82f102b66b`, 2026-11-05). Đây là snapshot phân tích; chưa phải cam kết rằng mọi chức năng trong SRS đã được triển khai.
 
 ## Kết luận nhanh

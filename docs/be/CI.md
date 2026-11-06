@@ -1,21 +1,10 @@
-# CI Pipeline
+# Local verification
 
-## Jobs
+- `make ci-go`: format check and Go tests.
+- `make ci-docker`: build retained service images.
+- `make ci-openapi`: existing optional OpenAPI lint (currently masks failures).
+- `make ci`: the above commands.
 
-| Job | Purpose |
-|-----|---------|
-| **go-test** | gofmt check + go test ./... |
-| **docker-build** | Verify Docker images build |
-| **test-ui-build** | Build React test UI |
-| **openapi-validate** | Validate OpenAPI spec |
-| **secret-scan** | Prevent accidental secret commits |
-
-## Local
-
-```bash
-make ci-go        # Go tests
-make ci-docker    # Docker build
-make ci-test-ui   # UI build
-make ci-openapi   # OpenAPI lint
-make ci           # All CI checks
-```
+The legacy Vite UI build target was removed with `tools/test_ui`.
+No GitHub Actions workflow is currently checked in; local targets do not prove
+an automated pipeline exists. Go tests do not prove new-schema integration.

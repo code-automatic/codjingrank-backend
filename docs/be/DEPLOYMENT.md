@@ -1,54 +1,29 @@
-# Deployment Guide
+# Deployment status
 
-> **v2.0 target (05/11/2026):** Run/Submit/Judge/Redis/Piston remain. The
-> repository/GitHub deployment below is legacy and must not be added to a new
-> environment. Forum and AI services are planned until their implementation and
-> health checks land.
+Updated 06/11/2026 after legacy cleanup.
 
-## Docker Architecture
+The retained Compose stack has Gateway, Auth, Run, Submission API and worker,
+PostgreSQL, Redis and Piston. Repository/GitHub credentials, mounts, callbacks
+and service dependencies have been removed.
 
-| Service | Port | Depends On |
-|---------|------|-----------|
-| api_gateway | 8080 | auth, run, submission |
-| auth_service | 8081 | postgres |
-| run_service | 8082 | postgres, piston |
-| submission_service | 8083 | postgres, redis |
-| submission_worker | — | postgres, redis, piston, ai_service (target) |
-| forum_service (target) | TBD | postgres |
-| ai_service (target) | internal | provider + postgres |
-
-## Quick Start (Docker)
+## Local checks
 
 ```bash
-# Build and start all services
-make compose-full-up
-
-# Apply schema + seed
-make seed-dev
-
-# Check health
-curl http://localhost:8080/health
-
-# View logs
-make compose-full-logs
-
-# Stop everything
-make compose-full-down
-
-# Reset volumes
-make docker-reset
+docker compose config --quiet
+make ci-go
 ```
 
-## Service URLs (Docker)
+`make compose-up` starts infrastructure; `make compose-full-up` builds and starts
+the retained services. Neither command bootstraps or integrates the new database.
+Go persistence and DTO integration with UUIDs/new columns is still pending.
+Do not deploy this state as a working new-product release.
 
-Internal: `http://<service_name>:<port>`
-Host: `http://localhost:<port>`
+## Database and target services
 
-## Legacy GitHub configuration (do not use for v2.0)
+`schema.sql` is a destructive bootstrap for a fresh standalone database.
+No old migration or seed step remains. Use a dedicated database/container and
+never reuse another project's infrastructure for validation.
 
-Mount private key:
-```yaml
-volumes:
-  - ./secrets:/app/secrets:ro
-```
-Set: `GITHUB_PRIVATE_KEY_PATH=/app/secrets/github-key.pem`
+Only Gateway should be public in the target deployment. AI and Forum services
+have not been implemented. Consult [frontend contract](../FRONTEND_API_CONTRACT.md)
+for target `/api/v1`; the current Gateway still registers root paths.
