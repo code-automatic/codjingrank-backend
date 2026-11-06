@@ -7,6 +7,15 @@ Forum, Leaderboard và AI bên dưới chưa implement; không gọi chúng như
 
 ## Quy ước chung
 
+Envelope đã chốt ngày 07/11/2026 theo
+[DECISIONS.md](DECISIONS.md#api-response-envelope-decision--confirmed-2026-11-07);
+xem [response contract](fe/RESPONSE_CONTRACT.md) cho ví dụ đầy đủ.
+`code` bằng HTTP status; `error` là chuỗi mã ổn định; `details` luôn có và có
+thể `null`. Frontend không rẽ nhánh theo `message`. Verdict và trạng thái AI
+nằm trong `data`; `204` không có body. Lần chốt này không đổi pagination,
+HTTP mapping hay thêm field envelope.
+
+
 - JSON dùng `camelCase`; thời gian hiện trả RFC3339.
 - Thành công: `{ "status":"success", "code":200, "message":"...", "data":{} }`.
 - Lỗi: `{ "status":"error", "code":400, "message":"...", "error":"BAD_REQUEST", "details":null }`.

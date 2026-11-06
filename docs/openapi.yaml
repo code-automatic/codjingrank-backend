@@ -1,3 +1,4 @@
+# Envelope confirmed 2026-11-07: docs/DECISIONS.md; error is a string, details is required and nullable.
 openapi: 3.0.3
 info:
   title: RinnoGen API - Full
@@ -45,7 +46,7 @@ components:
 
     ApiError:
       type: object
-      required: [status, code, message, error]
+      required: [status, code, message, error, details]
       properties:
         status: { type: string, enum: [error] }
         code: { type: integer }

@@ -32,8 +32,14 @@ work. The current queue is Redis `LPUSH/BRPOP`, not Asynq.
 
 - Gateway paths have no `/api/v1` prefix: `/subjects`, `/problems/{slug}`,
   `/run`, `/submit`, `/me/stats` and `/me/submissions`.
-- Responses use `{status, code, message, data}` or
-  `{status, code, message, error, details}` from `shared/response`.
+- Response envelope confirmed 2026-11-07 in `docs/DECISIONS.md`: success
+  `{status, code, message, data}`, error `{status, code, message, error, details}`.
+  Numeric `code` equals HTTP status; `error` is a string; `details` is nullable
+  but present. Verdict/AI states belong inside `data`; `204` has no body.
+  Do not introduce nested `{error:{code,message}}` or new envelope fields.
+  `shared/response.Router` now envelopes generated 404/405 errors; boundary
+  tests cover auth, rate-limit, panic, proxy errors and admin dispatch. Live
+  database integration remains unverified.
 - IDs are integer for users/problems/languages; submission IDs are UUIDs.
 - A Run response is synchronous. Submit inserts `Pending` before judging and
   persists every final verdict, including failures.

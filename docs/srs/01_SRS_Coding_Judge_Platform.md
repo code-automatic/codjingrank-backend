@@ -147,17 +147,28 @@ flowchart TD
 - Tiền tố: `/api/v1`. Định dạng JSON UTF-8. Thời gian ở dạng ISO-8601 UTC.
 - Xác thực: header `Authorization: Bearer <access_token>`.
 - Phân trang: `?page=1&size=20`; phản hồi chứa `items`, `page`, `size`, `total`.
-- Định dạng lỗi thống nhất:
+- Envelope chốt ngày 07/11/2026 theo
+  [DECISIONS.md](../DECISIONS.md#api-response-envelope-decision--confirmed-2026-11-07).
+  Thành công dùng `{status, code, message, data}`; lỗi dùng
+  `{status, code, message, error, details}`. `code` là số HTTP status,
+  `error` là chuỗi mã lỗi; `details` luôn có, mặc định `null`.
+  `message` bằng tiếng Anh, không dùng để rẽ nhánh frontend. Verdict/trạng thái
+  AI nằm trong `data`; `204` không có body. Ví dụ endpoint bên dưới chỉ mô tả
+  payload trong `data` nếu không ghi rõ envelope.
+- Định dạng lỗi thống nhất (không dùng nested `error` object):
 
 ```json
 {
-  "error": {
-    "code": "LEVEL_LOCKED",
-    "message": "Bạn cần hoàn thành Cấp 1 của gói này trước.",
-    "details": {}
-  }
+  "status": "error",
+  "code": 403,
+  "message": "Complete the previous level in this package first",
+  "error": "LEVEL_LOCKED",
+  "details": null
 }
 ```
+
+Xem [Response Contract](../fe/RESPONSE_CONTRACT.md). Lần chốt envelope này
+không đổi quy tắc phân trang hoặc HTTP mapping riêng của từng endpoint.
 
 | HTTP | Mã lỗi (code) tiêu biểu |
 |---|---|

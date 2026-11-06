@@ -16,6 +16,30 @@
   current root routes remain documented separately.
 - Execution window is 06/11/2026–22/11/2026; feature freeze 19/11 21:00.
 
+## API response envelope decision — confirmed 2026-11-07
+
+- This contract remains authoritative for the new product and `/api/v1`;
+  it is not retired with the legacy Repository/GitHub implementation.
+- JSON success responses use `{status, code, message, data}` with
+  `status: "success"`. JSON error responses use
+  `{status, code, message, error, details}` with `status: "error"`.
+- `code` is numeric and equals the HTTP status. `error` is a stable machine-code
+  string (for example `VALIDATION_ERROR` or `NOT_FOUND`), never a nested object.
+- `message` is a human-readable English string; frontend logic must not branch
+  on its wording. `details` is present and nullable; current field validation
+  uses `{field: "email"}`. Safe endpoint payloads belong inside `data`.
+- Run/submission verdicts and AI review state remain business fields inside
+  `data`; they do not replace envelope status. A retrieved failed AI review or
+  Wrong Answer result is not by itself an HTTP failure.
+- Existing `204 No Content` responses have no JSON body. Documentation/file
+  responses and other bodyless HTTP responses do not gain a JSON envelope.
+- This confirmation does not approve new envelope fields or change pagination,
+  validation HTTP mappings, request-ID transport or endpoint payloads.
+- See [response contract](fe/RESPONSE_CONTRACT.md). The existing
+  `shared/response` helpers match the shape; router-generated 404/405 responses now use the same envelope across Gateway,
+  Auth, Run, Submission and nested admin dispatch. Contract tests cover routing,
+  middleware and proxy failures; live database integration remains pending.
+
 The sections below are historical implementation decisions from the legacy
 Repository/GitHub flow. They explain current code only and must not be used to
 design the v2 product.
@@ -136,12 +160,6 @@ design the v2 product.
 - Noreply email: {github_user_id}+{username}@users.noreply.github.com
 - OAuth access token is NOT stored after use.
 - State uses signed JWT with 10-min expiry binding to the current RinnoGen user.
-
-### API Response Contract
-- All responses use envelope: `{status, code, message, data}` for success, `{status, code, message, error, details}` for errors
-- `code` is the HTTP status code number
-- `error` is the machine-readable code (BAD_REQUEST, UNAUTHORIZED, etc.)
-- Business statuses (submission status, run result) stay inside `data`
 
 ### GitHub App Installation Lifecycle (Fix)
 - `installation_id` is NEVER manually provided by users. It comes from GitHub callback or webhook.
