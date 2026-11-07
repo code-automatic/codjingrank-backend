@@ -1,9 +1,10 @@
 # Project State
 
 Updated: 2026-11-07
-Branch: `feat/schema-profile-fields`, based on `docs/frontend-api-v1` `ccddc11`.
-This branch includes its two unmerged frontend-contract commits above `main` `ac71ceb`.
-Runtime envelope is merged by PR #1; schema baseline at `ff17e0b`.
+Integration checkpoint: `feat/schema-profile-fields` at `76e018d`, including
+merged `main` `d3f840b`. PR #2 (frontend contract) is merged; PR #3 contains
+the reviewed profile correction. Runtime envelope is merged by PR #1;
+schema baseline at `ff17e0b`.
 
 
 ## Objective and approved baseline
@@ -16,7 +17,26 @@ The baseline is [decisions](docs/DECISIONS.md),
 [AI context](docs/AI_CONTEXT.md) and the
 [approved schema design](docs/superpowers/specs/2026-11-06-database-schema-design.md).
 
-## Current task: correct missing profile schema fields
+## Current task: review, merge and clean branch references
+
+- Owner authorized pushing, reviewing, merging and resolving remaining branches.
+- PR #2 merged with merge commit `d3f840b`, preserving `4558c42`, `ccddc11`
+  and handoff review fix `35632d0` (correct x-implementation-status flag).
+- PR #3 reviewed against that main: only fresh-schema profile columns, SQL
+  regression tests and related documentation. No blocking findings.
+- At this checkpoint PR #3 is ready to merge, not yet claimed merged. GitHub
+  reports mergeable/clean and no CI checks configured. Local verification on
+  `76e018d`: PostgreSQL 16 bootstrap twice plus all SQL constraints,
+  `go test -count=1 ./...`, `go vet ./...`, `go build ./...`, gofmt and diff
+  checks passed. Both OpenAPI contracts and all 2939/1303 examples validated.
+- Four older branch tips were proven ancestors of main: database-schema,
+  remove-legacy-code, docs/api-envelope and fix/api-envelope. Delete their refs
+  only after confirming their current tips remain reachable; no force deletion.
+- Integration next step: merge PR #3 using --merge, fast-forward local main,
+  verify commit reachability/tree and remove merged local/remote branch refs.
+- Preserve unrelated AGENTS changes and outputs workbook; neither is published.
+
+## Completed profile schema correction
 
 - Added nullable `users.avatar_url` (2048 characters) and `users.bio` (1000
   characters), with DB length checks matching target ProfilePatch limits.
@@ -28,12 +48,13 @@ The baseline is [decisions](docs/DECISIONS.md),
 - API/SRS/context documents now distinguish schema-backed profile fields from
   pending Go integration. Password recovery still requires token store/email;
   it is a separate Should feature, excluded from this correction.
-- Verification of this uncommitted correction based on `ccddc11`:
+- Original verification of the correction based on `ccddc11`:
   schema runner and `go test -count=1 ./...` passed; gofmt ran without Go diffs.
   OpenAPI validation passed: 94 full/42 learner operations, 2939/1303 examples,
   exact learner projection. Diff whitespace and AGENTS/workbook preservation
   checks passed. Schema/test correction committed in `d6c2adf`.
-- No push/PR/merge. Preserve unrelated AGENTS changes and outputs workbook.
+- Profile implementation commits: `d6c2adf`, `e3915c5`; integrated with
+  current main through merge commit `76e018d`, without rebase or squash.
 
 ## Completed frontend mock contract
 
@@ -63,8 +84,8 @@ The baseline is [decisions](docs/DECISIONS.md),
   prove ownership, role enforcement, rank calculations or actual judge behavior.
 - API envelope PR #1 merged via merge commit `ac71ceb`, original SHAs retained.
   All earlier branch commits are in main; no new feature runtime implemented.
-- Preserve unrelated AGENTS changes and `outputs/` workbook. Document commits
-  stay on this branch; no push/PR/merge requested for this new contract task.
+- Contract work is published and merged through PR #2. Unrelated AGENTS
+  changes and outputs workbook remain local and uncommitted.
 
 ## Completed
 
