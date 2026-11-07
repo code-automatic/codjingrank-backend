@@ -26,6 +26,6 @@ Call refresh with `credentials: "include"` after a 401, retry the original reque
 
 ## Profile
 
-`GET /api/v1/users/me` reads the current user. `PATCH /api/v1/users/me` changes only `fullName`, `avatarUrl`, or `bio`; those optional profile fields require the additive schema extension described in the OpenAPI contract. `PUT /api/v1/users/me/password` revokes refresh tokens and returns 204.
+`GET /api/v1/users/me` reads the current user. `PATCH /api/v1/users/me` changes only `fullName`, `avatarUrl`, or `bio`; the fresh schema stores `avatar_url` (up to 2048 characters) and `bio` (up to 1000 characters), both nullable. Omitted PATCH fields remain unchanged; null clears them. Go DTO/query/handler integration is still pending. `PUT /api/v1/users/me/password` revokes refresh tokens and returns 204.
 
 The frontend never sends `X-User-ID`, `X-User-Email`, or `X-User-Role`; Gateway derives them from the verified token. Do not store access or refresh tokens in localStorage.

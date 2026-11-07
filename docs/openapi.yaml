@@ -89,8 +89,6 @@ paths:
         '500': {$ref: '#/components/responses/Error500'}
         '502': {$ref: '#/components/responses/Error502'}
         '504': {$ref: '#/components/responses/Error504'}
-      x-schema-dependencies:
-      - User avatarUrl/bio are nullable projections; persistence requires additive users columns
   /api/v1/auth/login:
     post:
       operationId: login
@@ -150,8 +148,6 @@ paths:
         '500': {$ref: '#/components/responses/Error500'}
         '502': {$ref: '#/components/responses/Error502'}
         '504': {$ref: '#/components/responses/Error504'}
-      x-schema-dependencies:
-      - User avatarUrl/bio are nullable projections; persistence requires additive users columns
   /api/v1/auth/refresh:
     post:
       operationId: refresh
@@ -206,8 +202,6 @@ paths:
         '500': {$ref: '#/components/responses/Error500'}
         '502': {$ref: '#/components/responses/Error502'}
         '504': {$ref: '#/components/responses/Error504'}
-      x-schema-dependencies:
-      - User avatarUrl/bio are nullable projections; persistence requires additive users columns
   /api/v1/auth/logout:
     post:
       operationId: logout
@@ -368,15 +362,13 @@ paths:
         '500': {$ref: '#/components/responses/Error500'}
         '502': {$ref: '#/components/responses/Error502'}
         '504': {$ref: '#/components/responses/Error504'}
-      x-schema-dependencies:
-      - User avatarUrl/bio are nullable projections; persistence requires additive users columns
     patch:
       operationId: updateMe
       summary: Profile updated
       tags:
       - Profile
       description: Only fullName/avatarUrl/bio. Omitted means unchanged, null clears. Email/username/role/isActive cannot
-        be changed here. avatarUrl/bio require additive schema extension; no upload endpoint or binary files.
+        be changed here. avatarUrl and bio have nullable schema columns; no upload endpoint or binary files.
       security:
       - bearerAuth: []
       x-implementation-status: target-not-implemented
@@ -423,8 +415,6 @@ paths:
         '500': {$ref: '#/components/responses/Error500'}
         '502': {$ref: '#/components/responses/Error502'}
         '504': {$ref: '#/components/responses/Error504'}
-      x-schema-dependencies:
-      - User avatarUrl/bio are nullable projections; persistence requires additive users columns
   /api/v1/users/me/password:
     put:
       operationId: changePassword
@@ -2766,8 +2756,6 @@ paths:
         '500': {$ref: '#/components/responses/Error500'}
         '502': {$ref: '#/components/responses/Error502'}
         '504': {$ref: '#/components/responses/Error504'}
-      x-schema-dependencies:
-      - User avatarUrl/bio are nullable projections; persistence requires additive users columns
   /api/v1/admin/users/{id}:
     get:
       operationId: adminGetUser
@@ -2821,8 +2809,6 @@ paths:
         '500': {$ref: '#/components/responses/Error500'}
         '502': {$ref: '#/components/responses/Error502'}
         '504': {$ref: '#/components/responses/Error504'}
-      x-schema-dependencies:
-      - User avatarUrl/bio are nullable projections; persistence requires additive users columns
     patch:
       operationId: adminUpdateUser
       summary: User updated
@@ -2883,8 +2869,6 @@ paths:
         '500': {$ref: '#/components/responses/Error500'}
         '502': {$ref: '#/components/responses/Error502'}
         '504': {$ref: '#/components/responses/Error504'}
-      x-schema-dependencies:
-      - User avatarUrl/bio are nullable projections; persistence requires additive users columns
   /api/v1/admin/packages:
     get:
       operationId: adminListPackages
@@ -5861,7 +5845,7 @@ components:
       - isActive
       - createdAt
       - updatedAt
-      description: Owner/admin only. avatarUrl and bio require schema extension; email is never included in public authors/leaderboards.
+      description: Owner/admin only. avatarUrl and bio map to nullable users columns; email is never included in public authors/leaderboards.
     AuthData:
       type: object
       properties:

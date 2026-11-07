@@ -11,6 +11,27 @@ BEGIN
 END;
 $$;
 INSERT INTO users (id,email,username,password_hash) VALUES ('00000000-0000-0000-0000-000000000001','test@example.org','tester','hash');
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM users WHERE avatar_url IS NOT NULL OR bio IS NOT NULL) THEN
+        RAISE EXCEPTION 'Optional profile fields must default to NULL';
+    END IF;
+END $$;
+UPDATE users SET avatar_url='https://example.org/avatar.png',bio='Practising algorithms' WHERE id='00000000-0000-0000-0000-000000000001';
+DO $$ BEGIN
+    IF (SELECT avatar_url FROM users WHERE id='00000000-0000-0000-0000-000000000001') IS DISTINCT FROM 'https://example.org/avatar.png'
+        OR (SELECT bio FROM users WHERE id='00000000-0000-0000-0000-000000000001') IS DISTINCT FROM 'Practising algorithms' THEN
+        RAISE EXCEPTION 'Profile fields did not round-trip';
+    END IF;
+END $$;
+UPDATE users SET avatar_url=repeat('a',2048),bio=repeat('ệ',1000) WHERE id='00000000-0000-0000-0000-000000000001';
+UPDATE users SET avatar_url=NULL,bio=NULL WHERE id='00000000-0000-0000-0000-000000000001';
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM users WHERE avatar_url IS NOT NULL OR bio IS NOT NULL) THEN
+        RAISE EXCEPTION 'Optional profile fields must be clearable to NULL';
+    END IF;
+END $$;
+SELECT pg_temp.rejects($q$UPDATE users SET avatar_url=repeat('a',2049)$q$);
+SELECT pg_temp.rejects($q$UPDATE users SET bio=repeat('a',1001)$q$);
 INSERT INTO packages (id,slug,name) VALUES ('00000000-0000-0000-0000-000000000002','arrays','Arrays');
 SELECT pg_temp.rejects($q$UPDATE packages SET status='published',published_at=now()$q$);
 INSERT INTO levels (id,package_id,level_no,slug,name,difficulty,display_order)

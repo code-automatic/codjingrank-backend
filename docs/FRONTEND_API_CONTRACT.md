@@ -28,7 +28,7 @@ The complete machine-readable contract is [`openapi_fe.yaml`](openapi_fe.yaml) f
 | POST | `/auth/forgot-password` | Public | 202, always generic; Should/schema extension |
 | POST | `/auth/reset-password` | Public | 204; Should/schema extension |
 | GET | `/users/me` | Bearer | Current `user` |
-| PATCH | `/users/me` | Bearer | Updated `user`; Should/schema extension for avatar/bio |
+| PATCH | `/users/me` | Bearer | Updated `user`; Should; schema-backed avatar/bio, Go integration pending |
 | PUT | `/users/me/password` | Bearer | 204; revokes refresh tokens |
 
 Registration target policy is 8–72 characters with letters and numbers. The current Go DTO still accepts six characters; this is a migration gap, not a mock-server license to loosen the target contract.
@@ -148,7 +148,7 @@ These are contract-level design choices made to complete mock coverage on 07/11/
 - Week starts Monday 00:00 UTC; month starts at the first day 00:00 UTC. Bounds are half-open and returned as `periodStart/periodEnd`; all-time has null bounds. Period ranking counts problems FIRST solved in that period and sums their current distinct Accepted counts. Stable userId ordering does not break equal rank.
 - A problem's title/statement may receive editorial corrections after publication; samples, hidden tests, supported languages, templates, execution mode, limits, level and semantic judge behavior are frozen. Admin must clone for changes. Metadata tag links can change. Packages have exactly three levels, created atomically with the package; only level display names are editable.
 - Deactivate users/languages instead of deleting history. No language-delete endpoint, no level create/delete, no hard user delete, no rejudge, no comment likes, no reports/tags for Forum and no public AI trigger/retry. Deleted comment content becomes a tombstone; it is not returned to learner or moderation views.
-- `users.avatarUrl/bio` need additive schema columns. Until implemented, read projections are null. Password-recovery endpoints require a new hashed single-use expiring-token store plus email delivery; they remain `Should`, not available runtime routes. Comment moderation uses existing `is_deleted` (no invented hidden state). AI rubric keys/provider/quota/retry remain service-policy decisions; the client renders dimensions dynamically and reads generic safe failures.
+- `avatarUrl` maps to `users.avatar_url` (nullable, maximum 2048 characters); `bio` maps to `users.bio` (nullable, maximum 1000 characters). Omitting a PATCH field leaves it unchanged; null clears it. URI validation belongs to the API; Go DTO/query/handler integration is still pending. Password-recovery endpoints require a new hashed single-use expiring-token store plus email delivery; they remain `Should`, not available runtime routes. Comment moderation uses existing `is_deleted` (no invented hidden state). AI rubric keys/provider/quota/retry remain service-policy decisions; the client renders dimensions dynamically and reads generic safe failures.
 - Current HS256 JWT implementation is unchanged. This transport contract does not silently implement the old SRS RS256/JWKS proposal. All admin endpoints enforce current active admin role; protected target routes enforce active account state. Server-side revocation enforcement for existing access tokens requires integration; never claim a refresh-cookie clear alone revokes a JWT.
 
 ## Compatibility and implementation gates

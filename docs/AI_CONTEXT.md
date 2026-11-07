@@ -49,7 +49,9 @@ learners. Owner/admin checks protect source and AI; outsiders get404. Gateway is
 the only browser entrypoint. Keep current HS256 pending any separate JWT
 migration; the transport design alone does not implement RS256/JWKS.
 
-Schema gaps: avatar/bio persistence and reset-password token/email support.
+`users.avatar_url` and `users.bio` exist in the fresh schema (nullable, 2048/1000
+characters). Go DTO/query/handler integration is pending. Password recovery
+still needs reset-token persistence and email delivery.
 AI provider/rubric/quota/retry policy remains open; dimensions are dynamic in
 mock DTOs. Optional features are documented, not silently marked complete.
 Use a dedicated project test database; never HAPI or another project's services.
