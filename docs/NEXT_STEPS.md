@@ -16,12 +16,14 @@ Updated: 2026-11-05. Window: 06/11/2026–22/11/2026.
   và contract tests.
 - Không để AI lỗi biến Accepted thành Internal Error.
 
-## P1 — schema và catalog
+## P1 — tích hợp schema và catalog
 
-- Migration từ Subject/Session/Lesson sang Package/Level/Problem.
-- Thêm progress/unlock và dữ liệu leaderboard theo Accepted distinct.
-- Bỏ repository/GitHub tables, DTO, routes và commit metadata sau khi có kế
-  hoạch giữ dữ liệu lịch sử; không xóa remote GitHub repository.
+- Schema mới và legacy cleanup đã có; không migrate dữ liệu hierarchy cũ.
+- Tích hợp Go DTO/JWT/query sang UUID và packages/levels trong DB dùng chung.
+- Hoàn thiện API theo [OpenAPI target](openapi.yaml); frontend mock theo
+  [learner spec](openapi_fe.yaml), không coi đây là route live.
+- Triển khai ownership, progress/unlock và leaderboard Accepted distinct;
+  kiểm thử transaction/recovery cùng DB/worker.
 
 ## P2 — tính năng mới
 

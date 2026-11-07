@@ -1,64 +1,31 @@
-# Auth Flow for Frontend
+# Auth Flow for Frontend — `/api/v1`
 
-## Tokens
-
-| Token | Storage | Accessible by JS | Purpose |
-|-------|---------|-----------------|---------|
-| `accessToken` | JSON response → FE stores in memory/localStorage | Yes | API authorization (Bearer header) |
-| `refreshToken` | HttpOnly cookie (Set-Cookie) | No | Get new accessToken silently |
-
-## Login
+## Login and registration
 
 ```http
-POST /auth/login
+POST /api/v1/auth/login
 Content-Type: application/json
 
-{"email":"admin@example.com","password":"password"}
-
-Response:
-{
-  "status":"success","code":200,
-  "data": {
-    "accessToken": "eyJ...",
-    "user": {...}
-  }
-}
-Set-Cookie: refreshToken=abc123; HttpOnly; Path=/auth; Max-Age=604800
+{"email":"learner@example.com","password":"Coding2026"}
 ```
 
-## Refresh
+Response data is `{ accessToken, user }` inside the standard success envelope. The access token is held in memory. The server sets `refreshToken` as an HttpOnly cookie; JavaScript cannot read it.
 
-When accessToken expires (401), call refresh:
+## Refresh and logout
 
 ```http
-POST /auth/refresh
-Cookie: refreshToken=abc123
-
-Response:
-{
-  "status":"success","code":200,
-  "data": {
-    "accessToken": "eyJ...new...",
-    "user": {...}
-  }
-}
-Set-Cookie: refreshToken=xyz789; HttpOnly; Path=/auth; Max-Age=604800
+POST /api/v1/auth/refresh
+Cookie: refreshToken=...
 ```
 
-## Logout
+Call refresh with `credentials: "include"` after a 401, retry the original request once, and prevent concurrent refresh calls with a single-flight queue. Refresh rotates the cookie. Logout is `POST /api/v1/auth/logout`; it returns 204 and clears the shared cookie path.
 
-```http
-POST /auth/logout
-Cookie: refreshToken=abc123
+## Registration payload
 
-Response:
-{"status":"success","code":200,"message":"Logged out","data":null}
-Set-Cookie: refreshToken=; Max-Age=-1
-```
+`POST /api/v1/auth/register` accepts `email`, `username`, `password`, and optional `fullName`. The target password policy is 8–72 characters with at least one letter and number. `role`, `isActive`, tokens, and password hashes are server-owned.
 
-## Frontend Requirements
+## Profile
 
-- Use `credentials: "include"` in fetch/axios to send/receive cookies
-- Store accessToken in memory (not localStorage for refresh flow)
-- On 401, call `/auth/refresh` before retrying the original request
-- FE cannot read refreshToken from cookie (HttpOnly)
+`GET /api/v1/users/me` reads the current user. `PATCH /api/v1/users/me` changes only `fullName`, `avatarUrl`, or `bio`; those optional profile fields require the additive schema extension described in the OpenAPI contract. `PUT /api/v1/users/me/password` revokes refresh tokens and returns 204.
+
+The frontend never sends `X-User-ID`, `X-User-Email`, or `X-User-Role`; Gateway derives them from the verified token. Do not store access or refresh tokens in localStorage.

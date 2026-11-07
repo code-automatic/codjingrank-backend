@@ -16,6 +16,41 @@
   current root routes remain documented separately.
 - Execution window is 06/11/2026–22/11/2026; feature freeze 19/11 21:00.
 
+## Gateway v1 contract decision — 2026-11-06
+
+- `/api/v1` is the canonical public prefix for the next frontend contract.
+- The Gateway owns the prefix and strips it before forwarding to current
+  upstream services; upstream handlers keep their existing internal paths.
+- Root-level routes remain compatibility aliases during migration. They must
+  return the same status, response envelope and payload as the equivalent v1
+  route until a deprecation window is completed.
+- V1 keeps the current Run and Submit behavior: synchronous sample Run, and
+  `Pending → Redis → worker → Piston → verdict` for Submit. The SRS async
+  `run_id`/`job_id` shape is not introduced by prefixing alone.
+- Gateway validates JWT at the edge, strips client-supplied `Authorization` and
+  `X-User-*` before forwarding, then injects trusted user claims. Internal
+  routes and GitHub webhooks are outside the public v1 namespace.
+- The refresh cookie must cover both root and v1 auth paths while aliases exist;
+  cookie scope and `Set-Cookie` forwarding require an integration test before
+  v1 is enabled.
+- This is a documentation contract only. Route registration, upstream rewrite,
+  cookie handling and contract tests are implementation work that remains
+  pending.
+
+## Standalone database decision — 2026-11-06
+
+- The new platform uses one clean PostgreSQL database shared by Auth, Gateway,
+  Run, Submission, Forum and AI services.
+- `schema.sql` is a fresh target bootstrap. It does not migrate or preserve the
+  old `subjects → sessions → lessons → problems` hierarchy.
+- Package → Level → Problem, UUID identities, submissions, accepted solutions,
+  progress, forum and AI review are modeled directly with internal foreign keys.
+- Repository/GitHub tables and commit metadata are excluded. AI review remains
+  separate from verdict and leaderboard calculations.
+- The Go services still need a separate follow-up to update DTOs and queries to
+  this target schema; changing the schema does not claim that integration is
+  complete.
+
 ## API response envelope decision — confirmed 2026-11-07
 
 - This contract remains authoritative for the new product and `/api/v1`;
@@ -39,6 +74,23 @@
   `shared/response` helpers match the shape; router-generated 404/405 responses now use the same envelope across Gateway,
   Auth, Run, Submission and nested admin dispatch. Contract tests cover routing,
   middleware and proxy failures; live database integration remains pending.
+
+## Frontend mock contract design — 2026-11-07
+
+The owner requested complete endpoint documentation for frontend mocks.
+`openapi.yaml` is the full target public Gateway contract; `openapi_fe.yaml`
+is its learner projection. Neither is a live-route inventory. All F01–F13
+surfaces include UUID DTOs, errors and concrete examples; no runtime/schema
+change is made by this documentation task.
+
+Contract detail choices (limits, pagination, 400 vs endpoint-specific 422,
+Accepted AI review missing-row handling and schema-extension dependencies)
+are recorded in [frontend contract](FRONTEND_API_CONTRACT.md#transport-design-details-and-schema-gaps).
+They complete mock design, not a claim of previously ratified policy. Core
+judge/AI/leaderboard and shared-database decisions above remain authoritative.
+Optional password recovery requires token persistence/email; avatar/bio need
+additive user columns. Current Go integer IDs and root DTOs must be integrated
+before exposing the target UUID façade; prefix rewriting alone is insufficient.
 
 The sections below are historical implementation decisions from the legacy
 Repository/GitHub flow. They explain current code only and must not be used to
