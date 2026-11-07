@@ -88,8 +88,9 @@ Accepted AI review missing-row handling and schema-extension dependencies)
 are recorded in [frontend contract](FRONTEND_API_CONTRACT.md#transport-design-details-and-schema-gaps).
 They complete mock design, not a claim of previously ratified policy. Core
 judge/AI/leaderboard and shared-database decisions above remain authoritative.
-Optional password recovery requires token persistence/email; avatar/bio need
-additive user columns. Current Go integer IDs and root DTOs must be integrated
+Optional password recovery requires token persistence/email. The fresh schema
+stores nullable `avatar_url`/`bio` (2048/1000 characters); Go integration is pending.
+Current Go integer IDs and root DTOs must be integrated
 before exposing the target UUID façade; prefix rewriting alone is insufficient.
 
 The sections below are historical implementation decisions from the legacy

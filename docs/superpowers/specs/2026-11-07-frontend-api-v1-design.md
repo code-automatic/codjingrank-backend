@@ -31,8 +31,9 @@ canonical API file would leave competing sources. Neither is appropriate here.
 - Catalog level state is dynamic. Published judge inputs are immutable even
   after archive; clone creates a draft. No rejudge or manual AI trigger.
 - Complete optional SRS password recovery/profile/daily APIs as target contracts;
-  flag reset-token persistence and avatar/bio as schema extensions, not existing
-  fields. Do not alter schema in this task.
+  flag reset-token persistence as a schema extension. Do not alter schema in
+  this documentation task. Follow-up schema correction on 2026-11-07 adds
+  nullable avatar_url/bio; Go persistence integration is still pending.
 - Fill transport details (limits, nullability, empty states, error/status mapping)
   as documented contract design choices, not previously ratified product decisions.
 

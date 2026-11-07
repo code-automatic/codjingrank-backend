@@ -165,7 +165,7 @@ flowchart TD
   Secure production, Origin/CSRF policy theo deployment. Không gửi X-User-* từ FE.
 - Contract không triển khai RS256 hay đổi thuật toán JWT hiện tại. Quyết định
   token/key rollout riêng; không đưa provider/model keys vào DTO công khai.
-- Optional avatar/bio/password reset cần mở rộng schema/email; không giả định đã có.
+- Avatar/bio đã có cột nullable trong schema mới, Go runtime chưa tích hợp. Password reset vẫn cần token store/email.
 
 ### 2.4 Ma trận phân quyền
 
@@ -230,7 +230,7 @@ Các service dùng shared packages ở `shared/` theo cấu trúc repository. Kh
 | PATCH | `/api/v1/users/me` | Bearer/Owner theo mô tả | Should |
 | PUT | `/api/v1/users/me/password` | Bearer/Owner theo mô tả | Should |
 
-Password recovery và avatar/bio là Should, cần additive schema/email. Public author không trả email. Logout204; clear cookie không tự hủy JWT đã phát hành.
+Password recovery và cập nhật hồ sơ là Should. Avatar/bio đã có cột schema nullable; password recovery vẫn cần token store/email. Go runtime chưa tích hợp. Public author không trả email. Logout204; clear cookie không tự hủy JWT đã phát hành.
 
 ---
 
@@ -650,7 +650,7 @@ erDiagram
 
 `accepted_solutions` lưu mã Accepted distinct; mỗi lần thử vẫn là submission.
 Leaderboard all-time có view; tuần/tháng/gói là query cần triển khai. Avatar/bio
-và reset-token store là extension chưa có. Queue Redis LPUSH/BRPOP giữ nguyên,
+đã có cột users nullable (2048/1000 ký tự); reset-token store chưa có. Queue Redis LPUSH/BRPOP giữ nguyên,
 không Asynq. PostgreSQL bootstrap phá dữ liệu đích khi chạy, chỉ dùng DB riêng.
 
 ### 5.2 Luồng nghiệp vụ điển hình (Workflows)

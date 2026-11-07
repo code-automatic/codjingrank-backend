@@ -17,7 +17,8 @@ Mọi operation target-not-implemented; API đã có route root vẫn cần tíc
 UUID/schema và prefix v1. Không dùng route Subject/Session/Lesson/GitHub đã xóa.
 Database mới dùng chung, DATABASE_URL; không tách Auth/Judge database. Các
 đoạn kế hoạch gốc dưới đây chỉ tham khảo khi mâu thuẫn baseline mới. Optional
-password-reset/avatar/bio cần schema extension; không coi mock là đã làm BE.
+password-reset vẫn cần token store/email; avatar/bio đã có cột schema nhưng Go
+runtime chưa tích hợp, không coi mock là đã làm BE.
 
 ## 1. Owner và hỗ trợ
 

@@ -1,7 +1,8 @@
 # Project State
 
 Updated: 2026-11-07
-Branch: `docs/frontend-api-v1`, based on merged `main` `ac71ceb`.
+Branch: `feat/schema-profile-fields`, based on `docs/frontend-api-v1` `ccddc11`.
+This branch includes its two unmerged frontend-contract commits above `main` `ac71ceb`.
 Runtime envelope is merged by PR #1; schema baseline at `ff17e0b`.
 
 
@@ -15,7 +16,26 @@ The baseline is [decisions](docs/DECISIONS.md),
 [AI context](docs/AI_CONTEXT.md) and the
 [approved schema design](docs/superpowers/specs/2026-11-06-database-schema-design.md).
 
-## Current task: complete frontend mock contract
+## Current task: correct missing profile schema fields
+
+- Added nullable `users.avatar_url` (2048 characters) and `users.bio` (1000
+  characters), with DB length checks matching target ProfilePatch limits.
+- SQL regression first failed on missing `avatar_url`, then passed after adding
+  the columns. Verified fresh bootstrap twice plus all constraints using only
+  the disposable `codjingrank-profile-schema-test` PostgreSQL 16 container.
+- Covers NULL defaults, persistence, maximum lengths including Unicode, clearing
+  to NULL and rejecting oversized values. No judge logic or Go symbols changed.
+- API/SRS/context documents now distinguish schema-backed profile fields from
+  pending Go integration. Password recovery still requires token store/email;
+  it is a separate Should feature, excluded from this correction.
+- Verification of this uncommitted correction based on `ccddc11`:
+  schema runner and `go test -count=1 ./...` passed; gofmt ran without Go diffs.
+  OpenAPI validation passed: 94 full/42 learner operations, 2939/1303 examples,
+  exact learner projection. Diff whitespace and AGENTS/workbook preservation
+  checks passed. Schema/test correction committed in `d6c2adf`.
+- No push/PR/merge. Preserve unrelated AGENTS changes and outputs workbook.
+
+## Completed frontend mock contract
 
 - Documentation-only work on `docs/frontend-api-v1`; Go/schema unchanged.
 - Full Gateway OpenAPI:94 operations (52 admin), learner projection:42.
@@ -29,7 +49,8 @@ The baseline is [decisions](docs/DECISIONS.md),
   [plan](docs/superpowers/plans/2026-11-07-frontend-api-v1.md) record scope.
 - Transport choices made explicit: current helper400 validation, endpoint422,
   102400-byte code limit, AI missing-row review:null, no public AI trigger.
-  Optional avatar/bio and reset-token/email persistence require extensions;
+  Optional reset-token/email persistence requires an extension; avatar/bio
+  schema omission is corrected above (Go integration still pending);
   AI provider/quota/rubric/retry policy is not invented or marked implemented.
 - Verified on documentation working tree based on `ac71ceb`: OpenAPI3.0.3,
   2,939 full/1,303 learner example validations, references/unique operation IDs,

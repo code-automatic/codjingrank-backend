@@ -29,8 +29,9 @@ not a migration of the old `subjects → sessions → lessons → problems` mode
 
 ### Identity and access
 
-- `users`: UUID identity, email, username, password hash, role,
-  active state, and timestamps.
+- `users`: UUID identity, email, username, password hash, full name, optional
+  avatar URL (2048 characters), optional bio (1000 characters), role, active
+  state, and timestamps. Profile fields default to NULL and can be cleared.
 - `refresh_tokens`: hashed rotating refresh tokens, expiry, revocation, device
   metadata, and self-reference to the token it replaced.
 
