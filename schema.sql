@@ -84,13 +84,17 @@ CREATE TABLE users (
     password_hash text NOT NULL,
     username text NOT NULL,
     full_name text,
+    avatar_url text,
+    bio text,
     role user_role NOT NULL DEFAULT 'student',
     is_active boolean NOT NULL DEFAULT TRUE,
     created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT chk_users_email_not_blank CHECK (btrim(email) <> ''),
     CONSTRAINT chk_users_username_not_blank CHECK (btrim(username) <> ''),
-    CONSTRAINT chk_users_password_hash_not_blank CHECK (btrim(password_hash) <> '')
+    CONSTRAINT chk_users_password_hash_not_blank CHECK (btrim(password_hash) <> ''),
+    CONSTRAINT chk_users_avatar_url_length CHECK (char_length(avatar_url) <= 2048),
+    CONSTRAINT chk_users_bio_length CHECK (char_length(bio) <= 1000)
 );
 CREATE UNIQUE INDEX uq_users_email_lower ON users (lower(email));
 CREATE UNIQUE INDEX uq_users_username_lower ON users (lower(username));
