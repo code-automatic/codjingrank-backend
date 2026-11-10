@@ -19,7 +19,7 @@ func TestGetUserStats(t *testing.T) {
 	repo := New(pool)
 
 	// Use an isolated user ID for testing
-	userID := 99999
+	userID := "00000000-0000-0000-0000-000000099999"
 
 	// Ensure the user exists
 	_, err = pool.Exec(ctx, `INSERT INTO users (id, username, email, password) VALUES ($1, 'testuserstats', 'stats@test.com', 'hash') ON CONFLICT (id) DO NOTHING`, userID)

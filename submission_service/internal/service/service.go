@@ -35,7 +35,7 @@ func New(repo *repository.SubmissionRepository, q *queue.Queue, log *slog.Logger
 }
 
 // CreateSubmission validates inputs and creates a new Pending submission.
-func (s *SubmissionService) CreateSubmission(ctx context.Context, userID int, req dto.SubmitRequest) (*models.Submission, error) {
+func (s *SubmissionService) CreateSubmission(ctx context.Context, userID string, req dto.SubmitRequest) (*models.Submission, error) {
 	if _, msg := req.Validate(); msg != "" {
 		return nil, fmt.Errorf("%w: %s", ErrInvalidInput, msg)
 	}
@@ -83,7 +83,7 @@ func (s *SubmissionService) GetByID(ctx context.Context, id string) (*models.Sub
 }
 
 // ListByUserID returns all submissions for a user, newest first.
-func (s *SubmissionService) ListByUserID(ctx context.Context, userID int) ([]dto.SubmissionListItem, error) {
+func (s *SubmissionService) ListByUserID(ctx context.Context, userID string) ([]dto.SubmissionListItem, error) {
 	subs, err := s.repo.FindByUserID(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -96,7 +96,7 @@ func (s *SubmissionService) ListByUserID(ctx context.Context, userID int) ([]dto
 }
 
 // GetLatestByUserAndProblem returns the most recent submission for a user+problem pair.
-func (s *SubmissionService) GetLatestByUserAndProblem(ctx context.Context, userID, problemID int) (*models.Submission, error) {
+func (s *SubmissionService) GetLatestByUserAndProblem(ctx context.Context, userID string, problemID int) (*models.Submission, error) {
 	sub, err := s.repo.FindLatestByUserAndProblem(ctx, userID, problemID)
 	if err != nil {
 		return nil, err

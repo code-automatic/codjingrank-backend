@@ -14,7 +14,7 @@ import (
 func TestAdminRoutingEnvelope(t *testing.T) {
 	mux := http.NewServeMux()
 	RegisterAdminRoutes(mux, nil, "test-secret")
-	token, err := jwtlib.NewWithClaims(jwtlib.SigningMethodHS256, middleware.Claims{UserID: 1, Role: "admin", RegisteredClaims: jwtlib.RegisteredClaims{ExpiresAt: jwtlib.NewNumericDate(time.Now().Add(time.Hour))}}).SignedString([]byte("test-secret"))
+	token, err := jwtlib.NewWithClaims(jwtlib.SigningMethodHS256, middleware.Claims{UserID: "00000000-0000-0000-0000-000000000001", Role: "admin", RegisteredClaims: jwtlib.RegisteredClaims{Subject: "00000000-0000-0000-0000-000000000001", ExpiresAt: jwtlib.NewNumericDate(time.Now().Add(time.Hour))}}).SignedString([]byte("test-secret"))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -41,7 +41,7 @@ type GetSubmissionResponse struct {
 // SubmissionListItem is a submission without the code field, for list endpoints.
 type SubmissionListItem struct {
 	ID             string  `json:"id"`
-	UserID         int     `json:"userId"`
+	UserID         string  `json:"userId"`
 	ProblemID      int     `json:"problemId"`
 	LanguageID     int     `json:"languageId"`
 	Status         string  `json:"status"`

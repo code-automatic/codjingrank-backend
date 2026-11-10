@@ -58,7 +58,7 @@ type MeResponse struct {
 
 // UserResponse is the public-safe user payload (no password, no timestamps).
 type UserResponse struct {
-	ID       int     `json:"id"`
+	ID       string  `json:"id"`
 	Email    string  `json:"email"`
 	Username *string `json:"username"`
 	FullName *string `json:"fullName"`

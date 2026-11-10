@@ -7,6 +7,6 @@ import (
 )
 
 // GetUserStats retrieves dashboard statistics for the specified user.
-func (s *SubmissionService) GetUserStats(ctx context.Context, userID int) (*dto.UserStatsResponse, error) {
+func (s *SubmissionService) GetUserStats(ctx context.Context, userID string) (*dto.UserStatsResponse, error) {
 	return s.repo.GetUserStats(ctx, userID)
 }

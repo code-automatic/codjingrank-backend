@@ -35,7 +35,7 @@ const submissionColumnListNoCode = `id, user_id, problem_id, language_id, status
 const selectSubmissionColumnsNoCode = `SELECT ` + submissionColumnListNoCode + ` FROM submissions`
 
 // CreateSubmission inserts a new Pending submission and returns it.
-func (r *SubmissionRepository) CreateSubmission(ctx context.Context, userID, problemID, languageID int, code string) (*models.Submission, error) {
+func (r *SubmissionRepository) CreateSubmission(ctx context.Context, userID string, problemID, languageID int, code string) (*models.Submission, error) {
 	s := &models.Submission{}
 	err := r.pool.QueryRow(ctx,
 		`INSERT INTO submissions (user_id, problem_id, language_id, code)
@@ -83,7 +83,7 @@ func (r *SubmissionRepository) FindByID(ctx context.Context, id string) (*models
 }
 
 // FindByUserID returns all submissions for a user, newest first, without code.
-func (r *SubmissionRepository) FindByUserID(ctx context.Context, userID int) ([]models.Submission, error) {
+func (r *SubmissionRepository) FindByUserID(ctx context.Context, userID string) ([]models.Submission, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT s.id, s.user_id, s.problem_id, s.language_id, s.status, s.runtime_ms, s.memory_kb, s.error_message, s.pass_count, s.total_testcases,
 			s.created_at, s.judged_at
@@ -119,7 +119,7 @@ func (r *SubmissionRepository) FindByUserID(ctx context.Context, userID int) ([]
 
 // FindLatestByUserAndProblem returns the most recent submission for a user+problem pair.
 // Returns nil, nil if none found.
-func (r *SubmissionRepository) FindLatestByUserAndProblem(ctx context.Context, userID, problemID int) (*models.Submission, error) {
+func (r *SubmissionRepository) FindLatestByUserAndProblem(ctx context.Context, userID string, problemID int) (*models.Submission, error) {
 	s := &models.Submission{}
 	err := r.pool.QueryRow(ctx,
 		`SELECT s.id, s.user_id, s.problem_id, s.language_id, s.code, s.status, s.runtime_ms, s.memory_kb, s.error_message, s.pass_count, s.total_testcases,

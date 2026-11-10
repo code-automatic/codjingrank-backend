@@ -8,7 +8,7 @@ import (
 // User represents a row in the users table.
 // Password is tagged json:"-" to prevent accidental serialization in API responses.
 type User struct {
-	ID        int       `json:"id"`
+	ID        string    `json:"id"`
 	Email     string    `json:"email"`
 	Password  string    `json:"-"`
 	Username  *string   `json:"username"`
@@ -67,7 +67,7 @@ type Language struct {
 
 // Tag represents a row in the tags table.
 type Tag struct {
-	ID        int       `json:"id"`
+	ID        string    `json:"id"`
 	Name      string    `json:"name"`
 	CreatedAt time.Time `json:"createdAt"`
 }
@@ -75,7 +75,7 @@ type Tag struct {
 // Submission represents a row in the submissions table.
 type Submission struct {
 	ID             string     `json:"id"`
-	UserID         int        `json:"userId"`
+	UserID         string     `json:"userId"`
 	ProblemID      int        `json:"problemId"`
 	LanguageID     int        `json:"languageId"`
 	Code           string     `json:"code"`
