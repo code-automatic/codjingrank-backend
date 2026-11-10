@@ -47,7 +47,7 @@ func TestCatalogHTTPBoundary(t *testing.T) {
 		{"/api/v1/packages", false, 401, `"error":"UNAUTHORIZED"`},
 		{"/api/v1/packages?page=0", true, 400, `"status":"error"`},
 		{"/api/v1/packages?size=101", true, 400, `"status":"error"`},
-		{"/api/v1/packages", true, 200, `"items":[]`},
+		{"/api/v1/packages?q=unique-empty-http-boundary", true, 200, `"items":[]`},
 		{"/api/v1/problems?solved=maybe", true, 400, `"status":"error"`},
 		{"/api/v1/problems?difficulty=wrong", true, 400, `"status":"error"`},
 		{"/api/v1/problems/missing", true, 404, `"error":"NOT_FOUND"`},
