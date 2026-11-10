@@ -101,6 +101,7 @@ func main() {
 	adminRepo := admin.NewAdminRepository(pool)
 	adminHandler := admin.NewAdminHandler(adminRepo, log)
 	admin.RegisterAdminRoutes(mux, adminHandler, cfg.JWTSecret)
+	admin.RegisterV1(mux, pool, cfg.JWTSecret, log)
 
 	addr := ":" + cfg.APIGatewayPort
 	log.Info("api-gateway listening on " + addr)
