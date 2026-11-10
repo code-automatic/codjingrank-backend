@@ -99,6 +99,10 @@ found and fixed the recorded issues, but independent approval is still pending.
 
 ## Remaining limits
 
+This section records the Sprint2-only verification at `2a6d440`. Subsequent
+Sprint1 task6 adds trusted real-Piston Docker smoke at `9da0ab8`; see
+[deployment evidence](be/DEPLOYMENT.md). Other feature gaps below remain.
+
 - Accepted solution/progress writes belong to the next sprint. Tests seed progress
   rows; they do not establish worker-driven unlock end to end.
 - Worker crash recovery is absent; Running jobs can remain stuck after a crash.
