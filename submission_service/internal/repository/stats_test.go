@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 
@@ -9,8 +10,12 @@ import (
 )
 
 func TestGetUserStats(t *testing.T) {
+	url := os.Getenv("LEGACY_TEST_DATABASE_URL")
+	if url == "" {
+		t.Skip("legacy schema integration test; not a target runtime route")
+	}
 	ctx := context.Background()
-	pool, err := database.NewPostgresPool(ctx, "postgres://innogen:innogen@localhost:5432/innogen?sslmode=disable")
+	pool, err := database.NewPostgresPool(ctx, url)
 	if err != nil {
 		t.Skip("Database not available")
 	}

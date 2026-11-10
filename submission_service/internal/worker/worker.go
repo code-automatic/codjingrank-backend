@@ -79,10 +79,13 @@ func (w *Worker) processJob(ctx context.Context, submissionID string) error {
 		return nil
 	}
 
-	// 2. Mark Running
-	if err := w.repo.UpdateSubmissionStatus(ctx, submissionID, constants.StatusRunning); err != nil {
-		w.log.Warn("failed to update status to running", slog.String("error", err.Error()))
-		// Continue anyway — best effort
+	// Duplicate delivery must not execute or overwrite a persisted verdict.
+	claimed, err := w.repo.ClaimSubmission(ctx, submissionID)
+	if err != nil {
+		return fmt.Errorf("claim submission: %w", err)
+	}
+	if !claimed {
+		return nil
 	}
 
 	// 3. Load problem
@@ -111,6 +114,9 @@ func (w *Worker) processJob(ctx context.Context, submissionID string) error {
 		return nil
 	}
 
+	if err = w.repo.LoadTemplate(ctx, problem, sub.LanguageID); err != nil {
+		return fmt.Errorf("load template: %w", err)
+	}
 	// 5. Load test cases
 	testCases, err := w.repo.GetTestCasesByProblemID(ctx, sub.ProblemID)
 	if err != nil {
@@ -121,6 +127,9 @@ func (w *Worker) processJob(ctx context.Context, submissionID string) error {
 
 	// 6. Determine file name
 	fileName := languageutil.DetermineFileName(lang)
+	if problem.SolutionFileName != nil {
+		fileName = *problem.SolutionFileName
+	}
 
 	// 7. Execute and judge each test case
 	var (

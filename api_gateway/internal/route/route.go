@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httputil"
+	"strings"
 
 	"innogen-backend/shared/middleware"
 )
@@ -68,6 +69,15 @@ func RegisterProxyRoutes(mux *http.ServeMux, proxies *ProxySet, log *slog.Logger
 	mux.Handle("GET /me/submissions/{problemId}/latest", authMW(stripAllAuth(proxies.Submission)))
 	mux.Handle("GET /me/stats", authMW(stripAllAuth(proxies.Submission)))
 
+	// These upstreams now accept the same UUID request at root and v1.
+	stripV1 := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			r.URL.Path = strings.TrimPrefix(r.URL.Path, "/api/v1")
+			next.ServeHTTP(w, r)
+		})
+	}
+	mux.Handle("POST /api/v1/run", authMW(stripAllAuth(stripV1(proxies.Run))))
+	mux.Handle("POST /api/v1/submit", authMW(stripAllAuth(stripV1(proxies.Submission))))
 	// Health checks proxied to backend services
 	mux.Handle("GET /health/auth", stripUserHeaders(stripHealthPath(proxies.AuthPublic)))
 	mux.Handle("GET /health/run", stripUserHeaders(stripHealthPath(proxies.Run)))

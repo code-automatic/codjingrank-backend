@@ -7,6 +7,7 @@ import (
 
 	"innogen-backend/run_service/internal/dto"
 	"innogen-backend/run_service/internal/service"
+	"innogen-backend/shared/catalog"
 	"innogen-backend/shared/response"
 )
 
@@ -37,6 +38,14 @@ func (h *Handler) Run(w http.ResponseWriter, r *http.Request) {
 	resp, err := h.svc.Run(r.Context(), req)
 	if err != nil {
 		switch {
+		case errors.Is(err, catalog.ErrProblemNotFound):
+			response.ErrorSimple(w, 404, "Problem not found")
+		case errors.Is(err, catalog.ErrLevelLocked):
+			response.Error(w, 403, "Complete previous levels first", "LEVEL_LOCKED")
+		case errors.Is(err, catalog.ErrAccountInactive):
+			response.Error(w, 403, "Account is inactive", "ACCOUNT_INACTIVE")
+		case errors.Is(err, catalog.ErrLanguageUnsupported):
+			response.Error(w, 422, "Unsupported language", "LANGUAGE_NOT_SUPPORTED")
 		case errors.Is(err, service.ErrInvalidInput):
 			response.ErrorSimple(w, http.StatusBadRequest, "Invalid input")
 		case errors.Is(err, service.ErrProblemNotFound):

@@ -3,6 +3,8 @@ package catalog
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -139,5 +141,94 @@ func TestProblemProjectionAndTemplate(t *testing.T) {
 	detail, err = repo.ProblemBySlug(ctx, "projection-problem", uid)
 	if err != nil || detail != nil {
 		t.Fatalf("archived package exposed: %+v %v", detail, err)
+	}
+}
+
+func TestPublishedLockedExecutionUsesSameProgress(t *testing.T) {
+	pool := testPool(t)
+	ctx := context.Background()
+	repo := New(pool)
+	pkg, err := repo.CreatePackage(ctx, "policy-locked", "Policy", nil, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var uid, lang string
+	if err = pool.QueryRow(ctx, `INSERT INTO users(email,username,password_hash) VALUES('policy@example.org','policy','hash') RETURNING id`).Scan(&uid); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		for _, q := range []string{`DELETE FROM user_problem_progress WHERE user_id=$2`, `DELETE FROM users WHERE id=$2`, `UPDATE problems SET status='draft',published_at=NULL WHERE level_id IN(SELECT id FROM levels WHERE package_id=$1)`, `DELETE FROM problem_test_cases WHERE problem_id IN(SELECT id FROM problems WHERE level_id IN(SELECT id FROM levels WHERE package_id=$1))`, `DELETE FROM problems WHERE level_id IN(SELECT id FROM levels WHERE package_id=$1)`, `DELETE FROM levels WHERE package_id=$1`, `DELETE FROM packages WHERE id=$1`} {
+			// Each statement uses its own parameter list, so pgx can infer UUID types.
+			var e error
+			if strings.Contains(q, "$2") {
+				_, e = pool.Exec(ctx, strings.ReplaceAll(q, "$2", "$1"), uid)
+			} else {
+				_, e = pool.Exec(ctx, q, pkg.ID)
+			}
+			if e != nil {
+				t.Error(e)
+			}
+		}
+	})
+	if err = pool.QueryRow(ctx, `SELECT id FROM languages WHERE is_active LIMIT 1`).Scan(&lang); err != nil {
+		t.Fatal(err)
+	}
+	ids := []string{}
+	for i := 1; i <= 2; i++ {
+		var id string
+		if err = pool.QueryRow(ctx, `INSERT INTO problems(level_id,slug,title,statement_md) SELECT id,$2,'Policy','Statement' FROM levels WHERE package_id=$1 AND level_no=$3 RETURNING id`, pkg.ID, fmt.Sprintf("policy-%d", i), i).Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		ids = append(ids, id)
+		for _, q := range []string{`INSERT INTO problem_languages SELECT $1,$2::uuid`, `INSERT INTO code_templates(problem_id,language_id,starter_code,wrapper_code,file_name) VALUES($1,$2,'starter','private wrapper','main.py')`} {
+			if _, err = pool.Exec(ctx, q, id, lang); err != nil {
+				t.Fatal(err)
+			}
+		}
+		for _, q := range []string{`INSERT INTO problem_samples(problem_id,expected_output) VALUES($1,'sample')`, `INSERT INTO problem_test_cases(problem_id,expected_output) VALUES($1,'hidden')`, `UPDATE problems SET status='published',published_at=now() WHERE id=$1`} {
+			if _, err = pool.Exec(ctx, q, id); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if _, err = pool.Exec(ctx, `UPDATE packages SET status='published',published_at=now() WHERE id=$1`, pkg.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err = repo.CheckExecution(ctx, uid, ids[1], lang); !errors.Is(err, ErrLevelLocked) {
+		t.Fatalf("locked execution allowed: %v", err)
+	}
+	detail, err := repo.ProblemBySlug(ctx, "policy-2", uid)
+	if err != nil || detail == nil || detail.Problem.Unlocked || detail.StatementMD != "" {
+		t.Fatalf("locked statement leaked: %+v %v", detail, err)
+	}
+	if _, err = pool.Exec(ctx, `INSERT INTO user_problem_progress(user_id,problem_id,first_solved_at,last_solved_at) VALUES($1,$2,now(),now())`, uid, ids[0]); err != nil {
+		t.Fatal(err)
+	}
+	if err = repo.CheckExecution(ctx, uid, ids[1], lang); err != nil {
+		t.Fatalf("unlock: %v", err)
+	}
+	problem, err := repo.ExecutionProblem(ctx, ids[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = repo.ExecutionTemplate(ctx, problem, lang); err != nil || problem.DriverCode == nil || *problem.DriverCode != "private wrapper" {
+		t.Fatalf("internal template: %+v %v", problem, err)
+	}
+	sample, err := repo.ExecutionTests(ctx, ids[1], false)
+	if err != nil || len(sample) != 1 || sample[0].ExpectedOutput != "sample" {
+		t.Fatalf("sample: %+v %v", sample, err)
+	}
+	hidden, err := repo.ExecutionTests(ctx, ids[1], true)
+	if err != nil || len(hidden) != 1 || hidden[0].ExpectedOutput != "hidden" {
+		t.Fatalf("hidden: %+v %v", hidden, err)
+	}
+	if err = repo.CheckExecution(ctx, uid, ids[1], "00000000-0000-0000-0000-000000000000"); !errors.Is(err, ErrLanguageUnsupported) {
+		t.Fatalf("unsupported: %v", err)
+	}
+	if _, err = pool.Exec(ctx, `UPDATE packages SET status='archived' WHERE id=$1`, pkg.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err = repo.CheckExecution(ctx, uid, ids[1], lang); !errors.Is(err, ErrProblemNotFound) {
+		t.Fatalf("archived executable: %v", err)
 	}
 }

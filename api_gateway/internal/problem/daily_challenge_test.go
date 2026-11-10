@@ -2,6 +2,7 @@ package problem
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 
@@ -9,8 +10,12 @@ import (
 )
 
 func TestGetDailyChallenge(t *testing.T) {
+	url := os.Getenv("LEGACY_TEST_DATABASE_URL")
+	if url == "" {
+		t.Skip("legacy schema integration test; not a target runtime route")
+	}
 	ctx := context.Background()
-	pool, err := database.NewPostgresPool(ctx, "postgres://innogen:innogen@localhost:5432/innogen?sslmode=disable")
+	pool, err := database.NewPostgresPool(ctx, url)
 	if err != nil {
 		t.Skip("Database not available")
 	}
@@ -48,7 +53,7 @@ func TestGetDailyChallenge(t *testing.T) {
 		t.Fatalf("second call failed: %v", err)
 	}
 	if prob2.ID != prob1.ID {
-		t.Errorf("expected same problem on second call, got %d", prob2.ID)
+		t.Errorf("expected same problem on second call, got %s", prob2.ID)
 	}
 
 	// 3. (In handler) driver_code is excluded, let's just make sure repo has it so handler can omit it.

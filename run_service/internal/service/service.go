@@ -8,6 +8,7 @@ import (
 	"innogen-backend/run_service/internal/repository"
 	"innogen-backend/shared/judge"
 	"innogen-backend/shared/languageutil"
+	"innogen-backend/shared/middleware"
 	"innogen-backend/shared/models"
 	"innogen-backend/shared/piston"
 )
@@ -36,6 +37,13 @@ func (s *RunService) Run(ctx context.Context, req dto.RunRequest) (*dto.RunRespo
 		return nil, ErrInvalidInput
 	}
 
+	uid, ok := ctx.Value(middleware.UserIDKey).(string)
+	if !ok {
+		return nil, ErrInvalidInput
+	}
+	if err := s.repo.CheckExecution(ctx, uid, req.ProblemID, req.LanguageID); err != nil {
+		return nil, err
+	}
 	// Verify problem exists and get details
 	problem, err := s.repo.GetProblemByID(ctx, req.ProblemID)
 	if err != nil {
@@ -54,6 +62,9 @@ func (s *RunService) Run(ctx context.Context, req dto.RunRequest) (*dto.RunRespo
 		return nil, ErrLanguageNotFound
 	}
 
+	if err = s.repo.LoadTemplate(ctx, problem, req.LanguageID); err != nil {
+		return nil, err
+	}
 	// Load sample test cases
 	testCases, err := s.repo.GetSampleTestCases(ctx, req.ProblemID)
 	if err != nil {
@@ -62,6 +73,9 @@ func (s *RunService) Run(ctx context.Context, req dto.RunRequest) (*dto.RunRespo
 
 	// Determine the file name for code submission
 	fileName := languageutil.DetermineFileName(lang)
+	if problem.SolutionFileName != nil {
+		fileName = *problem.SolutionFileName
+	}
 
 	// Execute each test case
 	results := make([]dto.TestResult, 0, len(testCases))

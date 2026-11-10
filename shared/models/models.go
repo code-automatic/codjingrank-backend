@@ -21,7 +21,7 @@ type User struct {
 
 // Problem represents a row in the problems table.
 type Problem struct {
-	ID               int             `json:"id"`
+	ID               string          `json:"id"`
 	Slug             string          `json:"slug"`
 	Title            string          `json:"title"`
 	Difficulty       string          `json:"difficulty"`
@@ -42,8 +42,8 @@ type Problem struct {
 
 // TestCase represents a row in the test_cases table.
 type TestCase struct {
-	ID             int       `json:"id"`
-	ProblemID      int       `json:"problemId"`
+	ID             string    `json:"id"`
+	ProblemID      string    `json:"problemId"`
 	Visibility     string    `json:"visibility"`
 	InputData      *string   `json:"inputData"`
 	ExpectedOutput string    `json:"expectedOutput"`
@@ -54,7 +54,7 @@ type TestCase struct {
 
 // Language represents a row in the languages table.
 type Language struct {
-	ID              int       `json:"id"`
+	ID              string    `json:"id"`
 	Name            string    `json:"name"`
 	PistonAlias     string    `json:"pistonAlias"`
 	PistonVersion   string    `json:"pistonVersion"`
@@ -76,9 +76,12 @@ type Tag struct {
 type Submission struct {
 	ID             string     `json:"id"`
 	UserID         string     `json:"userId"`
-	ProblemID      int        `json:"problemId"`
-	LanguageID     int        `json:"languageId"`
+	ProblemID      string     `json:"problemId"`
+	LanguageID     string     `json:"languageId"`
 	Code           string     `json:"code"`
+	ProblemSlug    string     `json:"problemSlug"`
+	ProblemTitle   string     `json:"problemTitle"`
+	LanguageSlug   string     `json:"languageSlug"`
 	Status         string     `json:"status"`
 	RuntimeMs      *int       `json:"runtimeMs"`
 	MemoryKb       *int       `json:"memoryKb"`

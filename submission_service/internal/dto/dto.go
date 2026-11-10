@@ -1,6 +1,7 @@
 package dto
 
 import (
+	"innogen-backend/shared/middleware"
 	"strings"
 	"time"
 
@@ -9,21 +10,24 @@ import (
 
 // SubmitRequest is the JSON body for POST /submit.
 type SubmitRequest struct {
-	ProblemID  int    `json:"problemId"`
-	LanguageID int    `json:"languageId"`
+	ProblemID  string `json:"problemId"`
+	LanguageID string `json:"languageId"`
 	Code       string `json:"code"`
 }
 
 // Validate returns a field name and an error message if invalid, or empty strings if valid.
 func (r *SubmitRequest) Validate() (string, string) {
-	if r.ProblemID <= 0 {
-		return "problemId", "Problem ID is required"
+	if !middleware.ValidUUID(r.ProblemID) {
+		return "problemId", "Invalid problem ID"
 	}
-	if r.LanguageID <= 0 {
-		return "languageId", "Language ID is required"
+	if !middleware.ValidUUID(r.LanguageID) {
+		return "languageId", "Invalid language ID"
 	}
 	if strings.TrimSpace(r.Code) == "" {
 		return "code", "Code must not be empty"
+	}
+	if len(r.Code) > 102400 {
+		return "code", "Code exceeds maximum length"
 	}
 	return "", ""
 }
@@ -42,8 +46,8 @@ type GetSubmissionResponse struct {
 type SubmissionListItem struct {
 	ID             string  `json:"id"`
 	UserID         string  `json:"userId"`
-	ProblemID      int     `json:"problemId"`
-	LanguageID     int     `json:"languageId"`
+	ProblemID      string  `json:"problemId"`
+	LanguageID     string  `json:"languageId"`
 	Status         string  `json:"status"`
 	RuntimeMs      *int    `json:"runtimeMs"`
 	MemoryKb       *int    `json:"memoryKb"`

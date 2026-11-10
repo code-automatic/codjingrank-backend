@@ -40,22 +40,9 @@ func (s *SubmissionService) CreateSubmission(ctx context.Context, userID string,
 		return nil, fmt.Errorf("%w: %s", ErrInvalidInput, msg)
 	}
 
-	exists, err := s.repo.ProblemExists(ctx, req.ProblemID)
-	if err != nil {
+	if err := s.repo.CheckExecution(ctx, userID, req.ProblemID, req.LanguageID); err != nil {
 		return nil, err
 	}
-	if !exists {
-		return nil, ErrProblemNotFound
-	}
-
-	exists, err = s.repo.LanguageExists(ctx, req.LanguageID)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, ErrLanguageNotFound
-	}
-
 	submission, err := s.repo.CreateSubmission(ctx, userID, req.ProblemID, req.LanguageID, req.Code)
 	if err != nil {
 		return nil, err
@@ -96,7 +83,7 @@ func (s *SubmissionService) ListByUserID(ctx context.Context, userID string) ([]
 }
 
 // GetLatestByUserAndProblem returns the most recent submission for a user+problem pair.
-func (s *SubmissionService) GetLatestByUserAndProblem(ctx context.Context, userID string, problemID int) (*models.Submission, error) {
+func (s *SubmissionService) GetLatestByUserAndProblem(ctx context.Context, userID string, problemID string) (*models.Submission, error) {
 	sub, err := s.repo.FindLatestByUserAndProblem(ctx, userID, problemID)
 	if err != nil {
 		return nil, err

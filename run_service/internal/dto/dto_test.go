@@ -11,31 +11,31 @@ func TestRunRequest_Validate(t *testing.T) {
 	}{
 		{
 			name:         "valid",
-			req:          RunRequest{ProblemID: 1, LanguageID: 1, Code: "console.log(1)"},
+			req:          RunRequest{ProblemID: "00000000-0000-0000-0000-000000000000", LanguageID: "00000000-0000-0000-0000-000000000000", Code: "console.log(1)"},
 			wantErrField: "",
 			wantErrMsg:   "",
 		},
 		{
 			name:         "missing problemId",
-			req:          RunRequest{LanguageID: 1, Code: "console.log(1)"},
+			req:          RunRequest{LanguageID: "00000000-0000-0000-0000-000000000000", Code: "console.log(1)"},
 			wantErrField: "problemId",
-			wantErrMsg:   "problemId must be greater than 0",
+			wantErrMsg:   "Invalid problem ID",
 		},
 		{
 			name:         "missing languageId",
-			req:          RunRequest{ProblemID: 1, Code: "console.log(1)"},
+			req:          RunRequest{ProblemID: "00000000-0000-0000-0000-000000000000", Code: "console.log(1)"},
 			wantErrField: "languageId",
-			wantErrMsg:   "languageId must be greater than 0",
+			wantErrMsg:   "Invalid language ID",
 		},
 		{
 			name:         "empty code",
-			req:          RunRequest{ProblemID: 1, LanguageID: 1, Code: ""},
+			req:          RunRequest{ProblemID: "00000000-0000-0000-0000-000000000000", LanguageID: "00000000-0000-0000-0000-000000000000", Code: ""},
 			wantErrField: "code",
 			wantErrMsg:   "code must not be empty",
 		},
 		{
 			name:         "whitespace-only code",
-			req:          RunRequest{ProblemID: 1, LanguageID: 1, Code: "   \n\t  "},
+			req:          RunRequest{ProblemID: "00000000-0000-0000-0000-000000000000", LanguageID: "00000000-0000-0000-0000-000000000000", Code: "   \n\t  "},
 			wantErrField: "code",
 			wantErrMsg:   "code must not be empty",
 		},

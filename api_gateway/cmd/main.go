@@ -9,7 +9,6 @@ import (
 	"innogen-backend/api_gateway/internal/admin"
 	"innogen-backend/api_gateway/internal/catalog"
 	"innogen-backend/api_gateway/internal/middleware"
-	"innogen-backend/api_gateway/internal/problem"
 	"innogen-backend/api_gateway/internal/proxy"
 	"innogen-backend/api_gateway/internal/route"
 	"innogen-backend/shared/config"
@@ -30,9 +29,6 @@ func main() {
 		os.Exit(1)
 	}
 	defer pool.Close()
-
-	problemRepo := problem.NewProblemRepository(pool)
-	problemHandler := problem.NewHandler(problemRepo, log)
 
 	// Create proxies for backend services
 	authPublicProxy, err := proxy.NewProxy(cfg.AuthServiceURL, log)
@@ -89,18 +85,12 @@ func main() {
 
 	catalog.Register(mux, pool, cfg.JWTSecret, log)
 
-	// Problem routes
-	mux.HandleFunc("GET /problems/daily-challenge", problemHandler.GetDailyChallenge)
-	mux.HandleFunc("GET /problems/{slug}", problemHandler.GetProblem)
-	mux.HandleFunc("GET /problems/{id}/test-cases", problemHandler.ListTestCases)
+	route.RegisterRetiredCatalog(mux)
 
 	// Proxy routes to backend services
 	route.RegisterProxyRoutes(mux, &proxySet, log, cfg.JWTSecret)
 
 	// Admin routes
-	adminRepo := admin.NewAdminRepository(pool)
-	adminHandler := admin.NewAdminHandler(adminRepo, log)
-	admin.RegisterAdminRoutes(mux, adminHandler, cfg.JWTSecret)
 	admin.RegisterV1(mux, pool, cfg.JWTSecret, log)
 
 	addr := ":" + cfg.APIGatewayPort
