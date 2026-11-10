@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"innogen-backend/api_gateway/internal/admin"
+	"innogen-backend/api_gateway/internal/catalog"
 	"innogen-backend/api_gateway/internal/middleware"
 	"innogen-backend/api_gateway/internal/problem"
 	"innogen-backend/api_gateway/internal/proxy"
@@ -85,6 +86,8 @@ func main() {
 
 	// Health
 	mux.HandleFunc("GET /health", healthHandler)
+
+	catalog.Register(mux, pool, cfg.JWTSecret, log)
 
 	// Problem routes
 	mux.HandleFunc("GET /problems/daily-challenge", problemHandler.GetDailyChallenge)
