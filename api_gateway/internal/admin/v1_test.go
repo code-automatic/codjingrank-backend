@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"innogen-backend/shared/testutil"
 
 	"log/slog"
 	"net/http"
@@ -40,6 +41,7 @@ func TestV1CatalogLifecycle(t *testing.T) {
 		req.Header.Set("Authorization", "Bearer "+token)
 		rec := httptest.NewRecorder()
 		mux.ServeHTTP(rec, req)
+		testutil.Capture(t, rec, method, req.Pattern)
 		if rec.Code != want {
 			t.Fatalf("%s %s: %d %s", method, path, rec.Code, rec.Body.String())
 		}
@@ -62,13 +64,34 @@ func TestV1CatalogLifecycle(t *testing.T) {
 		t.Fatalf("wrong levels: %v", levels)
 	}
 	level := levels[0].(map[string]any)["id"].(string)
+	call("GET", "/packages/"+id, "", 200)
+	call("GET", "/packages?q=admin-lifecycle", "", 200)
+	call("PATCH", "/levels/"+level, `{"name":"Basic"}`, 200)
 	problem := call("POST", "/problems", `{"levelId":"`+level+`","slug":"admin-lifecycle","title":"Problem","statementMd":"Statement","executionMode":"stdin_stdout","timeLimitMs":1000,"memoryLimitMb":128,"outputLimitBytes":1024}`, 201)["data"].(map[string]any)["problem"].(map[string]any)
 	pid := problem["id"].(string)
-	call("POST", "/problems/"+pid+"/publish", "", 422)
+	call("GET", "/problems/"+pid, "", 200)
+	call("GET", "/problems?levelId="+level+"&packageId="+id, "", 200)
+	call("POST", "/problems/"+pid+"/archive", "", 409)
+	call("PATCH", "/packages/"+id, `{"slug":"admin-lifecycle"}`, 200)
+	call("POST", "/packages/"+id+"/publish", "", 200)
+	call("POST", "/problems/"+pid+"/publish", "", 409)
 	var lang string
 	pool.QueryRow(ctx, `SELECT id FROM languages WHERE is_active LIMIT 1`).Scan(&lang)
 	call("PUT", "/problems/"+pid+"/languages", `{"languageIds":["`+lang+`"]}`, 200)
 	call("PUT", "/problems/"+pid+"/templates/"+lang, `{"starterCode":"print(1)","wrapperCode":null,"fileName":"main.py"}`, 200)
+	call("GET", "/problems/"+pid+"/templates/"+lang, "", 200)
+	call("DELETE", "/problems/"+pid+"/templates/"+lang, "", 204)
+	call("PUT", "/problems/"+pid+"/templates/"+lang, `{"starterCode":"print(1)","wrapperCode":null,"fileName":"main.py"}`, 200)
+	call("GET", "/problems/"+pid+"/languages", "", 200)
+	call("GET", "/problems/"+pid+"/tags", "", 200)
+	call("PUT", "/problems/"+pid+"/tags", `{"tagIds":[]}`, 200)
+	sample := call("POST", "/problems/"+pid+"/samples", `{"inputData":null,"expectedOutput":"x","displayOrder":2}`, 201)["data"].(map[string]any)["sample"].(map[string]any)["id"].(string)
+	call("PATCH", "/problems/"+pid+"/samples/"+sample, `{"expectedOutput":"y"}`, 200)
+	call("DELETE", "/problems/"+pid+"/samples/"+sample, "", 204)
+	hidden := call("POST", "/problems/"+pid+"/test-cases", `{"inputData":null,"expectedOutput":"x","displayOrder":2,"isActive":false}`, 201)["data"].(map[string]any)["testCase"].(map[string]any)["id"].(string)
+	call("PATCH", "/problems/"+pid+"/test-cases/"+hidden, `{"isActive":true}`, 200)
+	call("DELETE", "/problems/"+pid+"/test-cases/"+hidden, "", 204)
+	call("GET", "/problems/"+pid+"/test-cases", "", 200)
 	call("POST", "/problems/"+pid+"/samples", `{"expectedOutput":"1","displayOrder":1}`, 201)
 	call("POST", "/problems/"+pid+"/test-cases", `{"expectedOutput":"1","displayOrder":1,"isActive":true}`, 201)
 	call("POST", "/problems/"+pid+"/publish", "", 200)
@@ -79,12 +102,23 @@ func TestV1CatalogLifecycle(t *testing.T) {
 	call("POST", "/tags", `{"slug":"lifecycle-tag","name":"Tag"}`, 201)
 	t.Cleanup(func() { pool.Exec(ctx, `DELETE FROM tags WHERE slug='lifecycle-tag'`) })
 	call("GET", "/languages", "", 200)
+	inactive := call("GET", "/languages?isActive=false", "", 200)["data"].(map[string]any)
+	if inactive["total"] != float64(0) {
+		t.Fatalf("inactive filter: %v", inactive)
+	}
+	call("GET", "/languages?isActive=bad", "", 400)
+	call("GET", "/languages/"+lang, "", 200)
+	call("PATCH", "/languages/"+lang, `{"pistonVersion":"changed"}`, 409)
+	call("GET", "/tags", "", 200)
 	call("PATCH", "/problems/"+pid, `{"timeLimitMs":2000}`, 409)
 	call("PATCH", "/problems/"+pid, `{"title":"Editorial correction"}`, 200)
 	call("POST", "/problems/"+pid+"/archive", "", 200)
+	call("POST", "/problems/"+pid+"/publish", "", 409)
 	call("PUT", "/problems/"+pid+"/languages", `{"languageIds":[]}`, 409)
 	call("DELETE", "/problems/"+pid, "", 409)
 	call("POST", "/packages/"+id+"/publish", "", 200)
+	call("POST", "/packages/"+id+"/archive", "", 200)
+	call("POST", "/packages/"+id+"/publish", "", 409)
 	call("PATCH", "/packages/"+id, `{"description":null}`, 200)
 	if _, err = pool.Exec(ctx, `UPDATE users SET role='student' WHERE id=$1`, uid); err != nil {
 		t.Fatal(err)

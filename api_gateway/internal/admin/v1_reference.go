@@ -41,12 +41,24 @@ func (h *v1Handler) reference(w http.ResponseWriter, r *http.Request) {
 			response.ErrorSimple(w, 400, "Invalid pagination")
 			return
 		}
+		where := ""
+		args := []any{}
+		if language && r.URL.Query().Has("isActive") {
+			v := r.URL.Query().Get("isActive")
+			if v != "true" && v != "false" {
+				response.ErrorSimple(w, 400, "Invalid active filter")
+				return
+			}
+			where = " WHERE is_active=$1"
+			args = append(args, v == "true")
+		}
 		var total int
-		if h.fail(w, h.pool.QueryRow(r.Context(), `SELECT count(*) FROM `+table).Scan(&total)) {
+		if h.fail(w, h.pool.QueryRow(r.Context(), `SELECT count(*) FROM `+table+where, args...).Scan(&total)) {
 			return
 		}
 		var items json.RawMessage
-		err := h.pool.QueryRow(r.Context(), `SELECT COALESCE(jsonb_agg(v ORDER BY s,i),'[]') FROM(SELECT `+projection+` v,slug s,id i FROM `+table+` ORDER BY slug,id LIMIT $1 OFFSET $2) x`, size, (page-1)*size).Scan(&items)
+		args = append(args, size, (page-1)*size)
+		err := h.pool.QueryRow(r.Context(), `SELECT COALESCE(jsonb_agg(v ORDER BY s,i),'[]') FROM(SELECT `+projection+` v,slug s,id i FROM `+table+where+fmt.Sprintf(` ORDER BY slug,id LIMIT $%d OFFSET $%d) x`, len(args)-1, len(args)), args...).Scan(&items)
 		if !h.fail(w, err) {
 			response.Success(w, 200, map[string]any{"items": items, "page": page, "size": size, "total": total}, "Resources retrieved")
 		}

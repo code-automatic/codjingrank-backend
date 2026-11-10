@@ -319,7 +319,7 @@ func patchFields(w http.ResponseWriter, r *http.Request, columns map[string]stri
 				case "description":
 					max = 10000
 				}
-				if key != "inputData" && key != "expectedOutput" && key != "description" && !validText(str, max) {
+				if (max > 0 && utf8.RuneCountInString(str) > max) || (key != "inputData" && key != "expectedOutput" && key != "description" && !validText(str, max)) {
 					response.ErrorSimple(w, 400, "Invalid text")
 					return nil, nil, nil, false
 				}
@@ -374,7 +374,14 @@ func (h *v1Handler) packageItem(w http.ResponseWriter, r *http.Request) {
 	case "POST":
 		next := "archived"
 		if strings.HasSuffix(r.URL.Path, "/publish") {
+			if status == "archived" {
+				response.ErrorSimple(w, 409, "Archived packages cannot be republished")
+				return
+			}
 			next = "published"
+		} else if status == "draft" {
+			response.ErrorSimple(w, 409, "Only published packages can be archived")
+			return
 		}
 		_, err = tx.Exec(r.Context(), `UPDATE packages SET status=$2::package_status,published_at=CASE WHEN $2::text='published' THEN COALESCE(published_at,now()) ELSE published_at END WHERE id=$1`, id, next)
 	}
@@ -474,7 +481,47 @@ func (h *v1Handler) problemItem(w http.ResponseWriter, r *http.Request) {
 		}
 	case "POST":
 		next := "archived"
+		if strings.HasSuffix(r.URL.Path, "/archive") && !published {
+			response.ErrorSimple(w, 409, "Only published problems can be archived")
+			return
+		}
 		if strings.HasSuffix(r.URL.Path, "/publish") {
+			var state string
+			if h.fail(w, tx.QueryRow(r.Context(), `SELECT status FROM problems WHERE id=$1`, id).Scan(&state)) {
+				return
+			}
+			if state == "archived" {
+				response.ErrorSimple(w, 409, "Archived problems cannot be republished")
+				return
+			}
+			// Lock runtime definitions in the same order used by admin runtime edits.
+			rows, e := tx.Query(r.Context(), `SELECT l.id FROM languages l JOIN problem_languages pl ON pl.language_id=l.id WHERE pl.problem_id=$1 ORDER BY l.id FOR UPDATE OF l`, id)
+			if h.fail(w, e) {
+				return
+			}
+			for rows.Next() {
+				var language string
+				if e = rows.Scan(&language); e != nil {
+					break
+				}
+			}
+			rows.Close()
+			if e == nil {
+				e = rows.Err()
+			}
+			if h.fail(w, e) {
+				return
+			}
+			var ready bool
+			err = tx.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM packages pk JOIN levels lv ON lv.package_id=pk.id WHERE lv.id=p.level_id AND pk.status='published') AND EXISTS(SELECT 1 FROM problem_languages WHERE problem_id=p.id) AND EXISTS(SELECT 1 FROM problem_samples WHERE problem_id=p.id) AND EXISTS(SELECT 1 FROM problem_test_cases WHERE problem_id=p.id AND is_active) AND NOT EXISTS(SELECT 1 FROM problem_languages pl JOIN languages l ON l.id=pl.language_id LEFT JOIN code_templates ct ON ct.problem_id=pl.problem_id AND ct.language_id=pl.language_id WHERE pl.problem_id=p.id AND (NOT l.is_active OR ct.id IS NULL OR (p.execution_mode='function' AND btrim(COALESCE(ct.wrapper_code,''))=''))) FROM problems p WHERE p.id=$1`, id).Scan(&ready)
+			if h.fail(w, err) {
+				return
+			}
+			if !ready {
+				response.Error(w, 409, "Published package, active runtimes, templates and tests are required", "PUBLISH_REQUIREMENTS_NOT_MET")
+				return
+			}
+
 			next = "published"
 		}
 		_, err = tx.Exec(r.Context(), `UPDATE problems SET status=$2::problem_status,published_at=CASE WHEN $2::text='published' THEN COALESCE(published_at,now()) ELSE published_at END WHERE id=$1`, id, next)
@@ -568,7 +615,7 @@ func (h *v1Handler) children(w http.ResponseWriter, r *http.Request) {
 	}
 	projection := `jsonb_build_object('id',id,'inputData',input_data,'expectedOutput',expected_output,'displayOrder',display_order`
 	if kind == "test-cases" {
-		projection += `,'problemId',problem_id,'isActive',is_active`
+		projection += `,'isActive',is_active`
 	}
 	projection += `)`
 	if r.Method == "GET" {
