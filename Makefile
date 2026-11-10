@@ -1,6 +1,8 @@
+PISTON_BASE_URL ?= http://localhost:2000
+
 DATABASE_URL ?= postgres://innogen:innogen@localhost:5432/innogen?sslmode=disable
 
-.PHONY: run-gateway run-auth run-runner run-submission run-submission-worker run-all stop-all tidy fmt test compose-up compose-down logs-piston piston-install compose-full-up compose-full-down compose-full-logs compose-ps docker-build docker-reset logs-gateway logs-auth logs-runner logs-submission logs-worker ci gofmt-check ci-go ci-docker ci-openapi
+.PHONY: docker-smoke run-gateway run-auth run-runner run-submission run-submission-worker run-all stop-all tidy fmt test compose-up compose-down logs-piston piston-install compose-full-up compose-full-down compose-full-logs compose-ps docker-build docker-reset logs-gateway logs-auth logs-runner logs-submission logs-worker ci gofmt-check ci-go ci-docker ci-openapi
 
 run-gateway:
 	go run ./api_gateway/cmd/main.go
@@ -36,11 +38,9 @@ logs-piston:
 	docker compose logs -f piston
 
 piston-install:
-	@echo "Installing Node.js 18.15.0 runtime in Piston (timeout 120s)..."
-	@curl -s --max-time 120 -X POST http://localhost:2000/api/v2/packages \
+	curl --fail-with-body --show-error --max-time 300 -X POST $(PISTON_BASE_URL)/api/v2/packages \
 		-H "Content-Type: application/json" \
-		-d '{"language":"node","version":"18.15.0"}' || echo "  (install skipped or failed - may already be installed)"
-	@echo "Done."
+		-d '{"language":"python","version":"3.10.0"}'
 
 run-all:
 	@echo "Starting all services in background..."
@@ -121,6 +121,10 @@ ci-docker:
 	docker compose build
 
 ci-openapi:
-	npx @redocly/cli lint docs/openapi.yaml --skip-rule no-unused-components 2>/dev/null || echo "OpenAPI lint skipped (redocly not installed)"
+	npx --yes @redocly/cli@1.34.5 lint docs/openapi.yaml --extends minimal
+	npx --yes @redocly/cli@1.34.5 lint docs/openapi_fe.yaml --extends minimal
+
+docker-smoke:
+	python3 tests/docker/smoke.py
 
 ci: ci-go ci-docker ci-openapi

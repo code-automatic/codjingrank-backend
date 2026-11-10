@@ -1,26 +1,25 @@
 services:
   postgres:
     image: postgres:16
-    container_name: innogen-postgres
     environment:
       POSTGRES_DB: innogen
       POSTGRES_USER: innogen
       POSTGRES_PASSWORD: innogen
     ports:
-      - "${POSTGRES_HOST_PORT:-5432}:5432"
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
       - innogen_postgres_data:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U innogen"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U innogen -d innogen"]
       interval: 5s
       timeout: 3s
       retries: 5
 
   redis:
     image: redis:7
-    container_name: innogen-redis
     ports:
-      - "${REDIS_HOST_PORT:-6379}:6379"
+      - "127.0.0.1:${REDIS_HOST_PORT:-6379}:6379"
     volumes:
       - innogen_redis_data:/data
     healthcheck:
@@ -30,12 +29,24 @@ services:
       retries: 5
 
   piston:
-    image: ghcr.io/engineer-man/piston:latest
-    container_name: innogen-piston
+    image: ghcr.io/engineer-man/piston@sha256:2f66b7456189c4d713aa986d98eccd0b6ee16d26c7ec5f21b30e942756fd127a
     privileged: true
     restart: unless-stopped
+    tmpfs:
+      - /tmp:exec
+    environment:
+      PISTON_DISABLE_NETWORKING: "true"
+      PISTON_RUN_TIMEOUT: "3000"
+      PISTON_RUN_CPU_TIME: "3000"
+      PISTON_COMPILE_MEMORY_LIMIT: "268435456"
+      PISTON_RUN_MEMORY_LIMIT: "268435456"
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:2000/api/v2/runtimes',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
     ports:
-      - "${PISTON_HOST_PORT:-2000}:2000"
+      - "127.0.0.1:${PISTON_HOST_PORT:-2000}:2000"
     volumes:
       - innogen_piston_data:/piston
 
@@ -44,9 +55,8 @@ services:
       context: .
       args:
         SERVICE_PATH: api_gateway/cmd
-    container_name: innogen-gateway
     ports:
-      - "${API_GATEWAY_HOST_PORT:-8080}:8080"
+      - "127.0.0.1:${API_GATEWAY_HOST_PORT:-8080}:8080"
     environment:
       APP_ENV: production
       DATABASE_URL: postgres://innogen:innogen@postgres:5432/innogen?sslmode=disable
@@ -67,9 +77,8 @@ services:
       context: .
       args:
         SERVICE_PATH: auth_service/cmd
-    container_name: innogen-auth
     ports:
-      - "${AUTH_SERVICE_HOST_PORT:-8081}:8081"
+      - "127.0.0.1:${AUTH_SERVICE_HOST_PORT:-8081}:8081"
     environment:
       APP_ENV: production
       DATABASE_URL: postgres://innogen:innogen@postgres:5432/innogen?sslmode=disable
@@ -84,9 +93,8 @@ services:
       context: .
       args:
         SERVICE_PATH: run_service/cmd
-    container_name: innogen-runner
     ports:
-      - "${RUN_SERVICE_HOST_PORT:-8082}:8082"
+      - "127.0.0.1:${RUN_SERVICE_HOST_PORT:-8082}:8082"
     environment:
       APP_ENV: production
       DATABASE_URL: postgres://innogen:innogen@postgres:5432/innogen?sslmode=disable
@@ -96,16 +104,15 @@ services:
       postgres:
         condition: service_healthy
       piston:
-        condition: service_started
+        condition: service_healthy
 
   submission_service:
     build:
       context: .
       args:
         SERVICE_PATH: submission_service/cmd/api
-    container_name: innogen-submission
     ports:
-      - "${SUBMISSION_SERVICE_HOST_PORT:-8083}:8083"
+      - "127.0.0.1:${SUBMISSION_SERVICE_HOST_PORT:-8083}:8083"
     environment:
       APP_ENV: production
       DATABASE_URL: postgres://innogen:innogen@postgres:5432/innogen?sslmode=disable
@@ -122,7 +129,6 @@ services:
       context: .
       args:
         SERVICE_PATH: submission_service/cmd/worker
-    container_name: innogen-worker
     environment:
       APP_ENV: production
       DATABASE_URL: postgres://innogen:innogen@postgres:5432/innogen?sslmode=disable
@@ -134,7 +140,7 @@ services:
       redis:
         condition: service_healthy
       piston:
-        condition: service_started
+        condition: service_healthy
 
 volumes:
   innogen_postgres_data:
