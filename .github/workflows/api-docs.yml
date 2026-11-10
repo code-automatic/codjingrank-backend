@@ -1,0 +1,61 @@
+name: Publish API docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - docs/openapi.yaml
+      - docs/openapi_fe.yaml
+      - docs/api/index.html
+      - .github/workflows/api-docs.yml
+  pull_request:
+    paths:
+      - docs/openapi.yaml
+      - docs/openapi_fe.yaml
+      - docs/api/index.html
+      - .github/workflows/api-docs.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: api-docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate and build API reference
+        run: |
+          set -eu
+          npx --yes @redocly/cli@1.34.5 lint docs/openapi.yaml --extends minimal
+          npx --yes @redocly/cli@1.34.5 lint docs/openapi_fe.yaml --extends minimal
+          mkdir -p _site
+          npx --yes @redocly/cli@1.34.5 build-docs docs/openapi_fe.yaml --output _site/learner.html
+          npx --yes @redocly/cli@1.34.5 build-docs docs/openapi.yaml --output _site/full.html
+          cp docs/api/index.html docs/openapi.yaml docs/openapi_fe.yaml _site/
+          touch _site/.nojekyll
+      - uses: actions/upload-pages-artifact@v3
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        with:
+          path: _site
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy API reference
+        id: deployment
+        uses: actions/deploy-pages@v4
