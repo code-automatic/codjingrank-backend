@@ -2,6 +2,11 @@
 
 **Contract version:** 2.1.0 · **Status:** target contract for frontend mocks; routes are not live yet.
 
+**Published reference:** https://code-automatic.github.io/codjingrank-backend/
+([learner](https://code-automatic.github.io/codjingrank-backend/learner.html),
+[full/admin](https://code-automatic.github.io/codjingrank-backend/full.html)).
+GitHub Pages hosts documentation only; send mock requests to local Prism.
+
 Every path in the tables below is relative to `/api/v1`.
 
 The complete machine-readable contract is [`openapi_fe.yaml`](openapi_fe.yaml) for learner screens and [`openapi.yaml`](openapi.yaml) for the full Gateway, including admin. Both files use OpenAPI 3.0.3, UUID identifiers, camelCase JSON, UTC RFC3339 timestamps, and the approved response envelope. Do not infer runtime availability from this document: the current Go Gateway still exposes compatibility root routes and does not register `/api/v1`.

@@ -1,5 +1,15 @@
 # Frontend Handoff — v2.1
 
+**API docs:** https://code-automatic.github.io/codjingrank-backend/
+
+- [Learner reference](https://code-automatic.github.io/codjingrank-backend/learner.html): 42 endpoints.
+- [Full reference](https://code-automatic.github.io/codjingrank-backend/full.html): 94 endpoints including 52 admin.
+- The public site publishes only generated API references and OpenAPI contracts,
+  with synthetic examples. Backend source remains private. Pages is not an API server.
+- Publication is automatic after contract/site changes merge into `main` via
+  `.github/workflows/api-docs.yml`; check the successful deployment before using
+  the public copy as the latest revision.
+
 The frontend mock must be generated from [`openapi_fe.yaml`](openapi_fe.yaml). Admin mock screens use [`openapi.yaml`](openapi.yaml). The route inventory and product rules are summarized in [`FRONTEND_API_CONTRACT.md`](FRONTEND_API_CONTRACT.md).
 
 ```bash

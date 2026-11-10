@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Codjingrank API contract</title>
+  <style>
+    body { font: 18px/1.6 system-ui, sans-serif; max-width: 820px; margin: 3rem auto; padding: 0 1.25rem; color: #17233b; }
+    a { color: #174da3; }
+    nav { display: flex; flex-wrap: wrap; gap: 1rem; margin: 2rem 0; }
+    nav a { padding: .8rem 1.2rem; border: 1px solid #174da3; border-radius: .4rem; }
+    pre { overflow-x: auto; padding: 1rem; background: #f1f4f8; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Codjingrank API contract</h1>
+    <p>Thiết kế API v2.1 cho frontend: 94 endpoint, gồm 42 learner và 52 admin, bao phủ F01–F13.</p>
+    <p><strong>Target contract dành cho mock. Các endpoint /api/v1 chưa được triển khai trong backend.</strong> Trang này không phải địa chỉ API server.</p>
+    <nav aria-label="API references">
+      <a href="learner.html">Learner API — 42 endpoint</a>
+      <a href="full.html">Full API — learner và admin</a>
+    </nav>
+    <h2>Quy tắc tích hợp</h2>
+    <ul>
+      <li>Gateway là public entrypoint; prefix <code>/api/v1</code>, ID UUID, JSON camelCase.</li>
+      <li>Success: <code>{status, code, message, data}</code>. Error: <code>{status, code, message, error, details}</code>. HTTP 204 không có body.</li>
+      <li>Access token qua Bearer; refresh token qua HttpOnly cookie. Gửi <code>credentials: include</code>, không gửi <code>X-User-*</code>.</li>
+      <li>Run sample đồng bộ. Submit trả Pending, frontend poll tới verdict.</li>
+      <li>AI review chỉ sau Accepted đã persist; điểm AI không đổi verdict hoặc leaderboard.</li>
+      <li>Should/Could là phạm vi thiết kế, không phải cam kết đã triển khai.</li>
+    </ul>
+    <h2>Mock tại máy frontend</h2>
+    <p>Tải <a href="openapi_fe.yaml" download>OpenAPI learner</a> hoặc <a href="openapi.yaml" download>OpenAPI đầy đủ</a>, rồi chạy:</p>
+    <pre><code>npx --yes @stoplight/prism-cli@5.16.0 mock openapi_fe.yaml -p 4010</code></pre>
+    <p>Mock stateless: không lưu dữ liệu, thực thi code, kiểm tra quyền thực tế hay tự chuyển trạng thái job. Dùng <code>Prefer: example=empty</code> hoặc các ví dụ trạng thái được khai báo trong endpoint.</p>
+  </main>
+</body>
+</html>
