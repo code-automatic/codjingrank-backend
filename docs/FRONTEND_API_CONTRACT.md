@@ -167,7 +167,7 @@ Gateway strips `/api/v1` only when the corresponding upstream understands the ta
 | Earlier root behavior / remaining gap | Target v1 | Current status / integration requirement |
 |---|---|---|
 | Integer user/problem/language IDs | UUID strings everywhere | Auth/JWT/catalog/Run/Submit integrated; remaining consumers and frontend types still require alignment |
-| Logout200 envelope | Logout204 bodyless/idempotent | Root logout is bodyless204; target v1 Auth route remains pending |
+| Logout200 envelope | Logout204 bodyless/idempotent | Root logout remains200; bodyless204 and target v1 Auth route remain pending |
 | History data.submissions without page contract | data.items/page/size/total | Add stable pagination and update clients; never silently return different root/v1 payloads |
 | Legacy stats rank.rating | Target progress/rank without rating | Remove rating assumptions; AI score is separate |
 | Root public problem detail | Target catalog requires Bearer/level checks | Implemented v1 authentication/level checks; root problem family retired410 |
