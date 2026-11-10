@@ -198,12 +198,15 @@ func computeOverallStatus(results []dto.TestResult, passed, total int, internalE
 	// Check for error statuses in priority order
 	hasCompilationError := false
 	hasRuntimeError := false
+	hasTimeout := false
 	hasInternalError := internalError
 
 	for _, r := range results {
 		switch r.Status {
 		case dto.StatusCompilationError:
 			hasCompilationError = true
+		case dto.StatusTimeLimitExceeded:
+			hasTimeout = true
 		case dto.StatusRuntimeError:
 			hasRuntimeError = true
 		case dto.StatusInternalError:
@@ -216,6 +219,9 @@ func computeOverallStatus(results []dto.TestResult, passed, total int, internalE
 	}
 	if hasInternalError {
 		return dto.StatusInternalError
+	}
+	if hasTimeout {
+		return dto.StatusTimeLimitExceeded
 	}
 	if hasRuntimeError {
 		return dto.StatusRuntimeError
