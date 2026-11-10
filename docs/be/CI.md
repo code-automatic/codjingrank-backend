@@ -6,8 +6,10 @@
 - `make ci`: the above commands.
 
 The legacy Vite UI build target was removed with `tools/test_ui`.
-No GitHub Actions workflow is currently checked in; local targets do not prove
-an automated pipeline exists. Go tests do not prove new-schema integration.
+The API documentation workflow (`.github/workflows/api-docs.yml`) validates
+and publishes OpenAPI references. It does not run the Go tests, build service
+images or validate runtime integration. Local targets do not prove a backend
+CI pipeline exists. Go tests do not prove new-schema integration.
 
 ## Baseline audit — 2026-11-08
 
@@ -17,7 +19,7 @@ Checked on `main` `68b0244` with a Docker-capable local environment:
 - `docker compose config --quiet` and the production override parse passed.
 - `docker compose build` built all retained images successfully.
 - `make ci-openapi` completed, but its exit status is not a reliable lint gate because it masks failures. See the findings below.
-- `gh api .../actions/workflows` returned zero workflows. There is no GitHub Actions CI pipeline in this repository.
+- `gh api .../actions/workflows` returned zero workflows at the time of this audit. The API documentation workflow was added later on 10/11; backend CI remains pending.
 
 Known blockers for calling the Docker/CI baseline production-ready:
 
