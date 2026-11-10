@@ -1,14 +1,14 @@
-# Target-only /api/v1 contract, not evidence of implemented endpoints.
+# Target contract with partial local implementation; see SPRINT2_ACCEPTANCE.md.
 openapi: 3.0.3
 info:
   title: Codjingrank Gateway API v1
   version: 2.1.0-contract
-  description: TARGET CONTRACT FOR MOCKS — not a live API inventory. All /api/v1 operations require backend implementation/integration.
+  description: TARGET CONTRACT WITH PARTIAL LOCAL IMPLEMENTATION — not a deployed API inventory. See SPRINT2_ACCEPTANCE.md for tested scope.
     One shared UUID database. Current root routes/DTOs are NOT compatible automatically. See FRONTEND_API_CONTRACT.md for
     access, migration and schema-extension notes. No GitHub/repository/old curriculum routes. Priority Could/Should is coverage,
     not a delivery promise.
 servers:
-- {url: 'http://localhost:8080', description: Target Gateway; run a mock on port4010 until runtime implementation}
+- {url: 'http://localhost:8080', description: Gateway; pending operations require mocks on port4010}
 - {url: 'http://localhost:4010', description: Prism mock server}
 tags:
 - {name: Auth, description: Owned by auth_service}
@@ -509,7 +509,7 @@ paths:
       description: Only active languages, stable ordering slug then id. Python 3.12, C++17, Java17 target runtimes. Hide Piston
         selector/version internals.
       security: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F03
       x-priority: Must
@@ -545,7 +545,7 @@ paths:
       - Catalog
       description: Tags retrieved
       security: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F04
       x-priority: Should
@@ -583,7 +583,7 @@ paths:
         alias or parent hierarchy.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F04
       x-priority: Must
@@ -654,7 +654,7 @@ paths:
         only. Empty levels count as completed. No hidden tests or solutions.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F04
       x-priority: Must
@@ -730,7 +730,7 @@ paths:
         level-up.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: submission_service
       x-feature: F08
       x-priority: Must
@@ -806,7 +806,7 @@ paths:
         id.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F04
       x-priority: Must
@@ -913,7 +913,7 @@ paths:
         and examples; no separate constraintsMd DB field. Sample data is public; hidden tests and wrappers are excluded.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F04
       x-priority: Must
@@ -982,7 +982,7 @@ paths:
         execution override.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F03
       x-priority: Must
@@ -1026,7 +1026,7 @@ paths:
         422 LANGUAGE_NOT_SUPPORTED. No wrapperCode.'
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F05
       x-priority: Must
@@ -1078,7 +1078,7 @@ paths:
         switch or hidden test endpoint exists for learners.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F04
       x-priority: Must
@@ -1128,7 +1128,7 @@ paths:
         No hidden test is sent or returned.'
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: partial-integration-tested
       x-owner: run_service
       x-feature: F06
       x-priority: Must
@@ -1198,7 +1198,7 @@ paths:
         is promised. Enforce publication/language/level before creating row.'
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: partial-integration-tested
       x-owner: submission_service
       x-feature: F07
       x-priority: Must
@@ -2878,7 +2878,7 @@ paths:
       description: Packages retrieved
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F12
       x-priority: Must
@@ -2967,7 +2967,7 @@ paths:
         conflict409 SLUG_EXISTS.'
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F12
       x-priority: Must
@@ -3027,7 +3027,7 @@ paths:
       description: Package retrieved
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F12
       x-priority: Must
@@ -3086,7 +3086,7 @@ paths:
         links or return409 SLUG_IN_USE once published.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F12
       x-priority: Must
@@ -3144,7 +3144,7 @@ paths:
         RESOURCE_IN_USE. Archive published packages instead.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F12
       x-priority: Must
@@ -3178,7 +3178,7 @@ paths:
         Idempotent when already published.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F12
       x-priority: Must
@@ -3231,7 +3231,7 @@ paths:
         unavailable; owner history/AI remains readable.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F12
       x-priority: Must
@@ -3283,7 +3283,7 @@ paths:
       description: Levels retrieved
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F12
       x-priority: Must
@@ -3333,7 +3333,7 @@ paths:
         no independent level create/delete.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F12
       x-priority: Must
@@ -3383,7 +3383,7 @@ paths:
       description: Problems retrieved
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F12
       x-priority: Must
@@ -3488,7 +3488,7 @@ paths:
         field.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F12
       x-priority: Must
@@ -3555,7 +3555,7 @@ paths:
       description: Problem retrieved
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F12
       x-priority: Must
@@ -3613,7 +3613,7 @@ paths:
         judge changes.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F12
       x-priority: Must
@@ -3685,7 +3685,7 @@ paths:
         deletion409 PROBLEM_PUBLISHED_LOCKED. Cascade draft samples/templates/languages deliberately.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F12
       x-priority: Must
@@ -3720,7 +3720,7 @@ paths:
         success freezes judge inputs permanently. Repeated published returns200; archived cannot republish.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F12
       x-priority: Must
@@ -3777,7 +3777,7 @@ paths:
       description: Published->archived only, repeat idempotent; frozen judge content remains frozen. Retain attempts/progress.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F12
       x-priority: Must
@@ -3835,7 +3835,7 @@ paths:
         level. No submission/progress/AI copied; publishedAt=null; new unique slug required.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F12
       x-priority: Should
@@ -3898,7 +3898,7 @@ paths:
       description: Problem tags retrieved
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F12
       x-priority: Must
@@ -3942,7 +3942,7 @@ paths:
         ID404.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F12
       x-priority: Should
@@ -3994,7 +3994,7 @@ paths:
       description: Problem languages retrieved
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F12
       x-priority: Must
@@ -4046,7 +4046,7 @@ paths:
         Frozen after any publish:409 PROBLEM_PUBLISHED_LOCKED.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F12
       x-priority: Must
@@ -4106,7 +4106,7 @@ paths:
       description: Template retrieved
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F12
       x-priority: Must
@@ -4157,7 +4157,7 @@ paths:
         or override. Filename basename only, reject . and .. and paths. Never-published drafts only or409 PROBLEM_PUBLISHED_LOCKED.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F12
       x-priority: Must
@@ -4217,7 +4217,7 @@ paths:
       description: Never-published draft only; publishedAt nonnull409 PROBLEM_PUBLISHED_LOCKED. Missing template404.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F12
       x-priority: Must
@@ -4255,7 +4255,7 @@ paths:
         override.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F12
       x-priority: Must
@@ -4303,7 +4303,7 @@ paths:
         per problem; conflict409 DISPLAY_ORDER_EXISTS. Reject executeCode/points or unknown fields.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F12
       x-priority: Must
@@ -4361,7 +4361,7 @@ paths:
         displayOrder conflict409 DISPLAY_ORDER_EXISTS.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F12
       x-priority: Must
@@ -4422,7 +4422,7 @@ paths:
         even archived.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F12
       x-priority: Must
@@ -4460,7 +4460,7 @@ paths:
         override.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F12
       x-priority: Must
@@ -4508,7 +4508,7 @@ paths:
         per problem; conflict409 DISPLAY_ORDER_EXISTS. Reject executeCode/points or unknown fields.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F12
       x-priority: Must
@@ -4566,7 +4566,7 @@ paths:
         displayOrder conflict409 DISPLAY_ORDER_EXISTS.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F12
       x-priority: Must
@@ -4627,7 +4627,7 @@ paths:
         even archived.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F12
       x-priority: Must
@@ -4664,7 +4664,7 @@ paths:
       description: Languages retrieved
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F12
       x-priority: Must
@@ -4742,7 +4742,7 @@ paths:
         from pistonVersion. Unique slug/runtime pair conflict409.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F12
       x-priority: Must
@@ -4796,7 +4796,7 @@ paths:
       description: Language retrieved
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F12
       x-priority: Must
@@ -4848,7 +4848,7 @@ paths:
         Deactivation blocks new Run/Submit but preserves history. No delete: deactivate instead.'
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F12
       x-priority: Must
@@ -4907,7 +4907,7 @@ paths:
       description: Tags retrieved
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F12
       x-priority: Should
@@ -4971,7 +4971,7 @@ paths:
       description: Tag created
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F12
       x-priority: Should
@@ -5015,7 +5015,7 @@ paths:
       description: Tag updated
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F12
       x-priority: Should
@@ -5063,7 +5063,7 @@ paths:
       description: Only unused tags may be deleted; otherwise409 RESOURCE_IN_USE. Unlink explicitly first.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F12
       x-priority: Should

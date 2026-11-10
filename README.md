@@ -14,10 +14,12 @@ and [frontend contract](docs/FRONTEND_API_CONTRACT.md).
 - `schema.sql`: clean shared PostgreSQL 16 bootstrap for Package → Level → Problem.
 - `tests/schema/`: bootstrap and constraint checks.
 
-**Integration is pending:** surviving Go DTOs and SQL still use legacy integer IDs
-and column names. They compile but are not yet compatible with the new UUID schema.
-Do not treat the stack as an operational new-product release.
-The `/api/v1` façade, Forum, AI review and target leaderboard are not implemented.
+**Sprint 2 backend implemented locally:** UUID Auth/JWT/refresh persistence,
+`/api/v1` learner catalog and admin catalog CRUD/publication, shared level-access
+checks for Run/Submit, UUID judge consumers and owner-only submission detail.
+See [Sprint 2 acceptance](docs/SPRINT2_ACCEPTANCE.md) for tested scope and remaining
+gaps. Full target Auth/profile/history, worker recovery, progress writes, Forum,
+AI and leaderboard remain pending. This is not a production release.
 
 Repository/GitHub integration, Subject/Session/Lesson endpoints, old migrations,
 old seeds and the legacy Vite test UI have been removed. No replacement AI call
@@ -60,7 +62,8 @@ Use [learner OpenAPI](docs/openapi_fe.yaml) for learner screens and
 [full Gateway/admin OpenAPI](docs/openapi.yaml) for admin screens. The
 [frontend contract](docs/FRONTEND_API_CONTRACT.md) covers F01–F13, permissions,
 examples and schema-integration gaps. These are target `/api/v1` contracts;
-current Go routes do not implement them yet.
+runtime availability is listed in the Sprint 2 acceptance report. Unimplemented
+operations still require Prism.
 
 ```bash
 npx @stoplight/prism-cli mock docs/openapi_fe.yaml -p 4010

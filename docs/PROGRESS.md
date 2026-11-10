@@ -1,36 +1,36 @@
 # Implementation Progress
 
-Updated: 2026-11-05. This report separates the legacy backend that exists from
-the v2 target work; documentation changes do not implement the target items.
+Updated: 2026-11-11. Local implementation is based on main `f10c4b1`;
+not pushed, merged or deployed. Evidence: [Sprint 2 acceptance](SPRINT2_ACCEPTANCE.md).
 
-## Đã làm được trong backend hiện tại
+## Sprint 2 backend
 
-- Auth JWT/bcrypt, refresh/logout và API Gateway xác thực ở edge.
-- Curriculum/problem/admin CRUD theo `Subject → Session → Lesson → Problem`.
-- Run đồng bộ qua Piston với sample tests.
-- Submit tạo Pending, Redis list queue, worker chạy hidden tests và cập nhật
-  verdict; mọi verdict cuối vẫn được lưu theo schema hiện tại.
-- `/me/submissions`, `/me/stats`, rate limit/anti-spam và response envelope
-  dùng chung.
-- PostgreSQL, Redis, Docker Compose, seed/E2E cơ bản và tài liệu OpenAPI hiện tại.
+| Task | Scope | Status |
+|---|---|---|
+| 7 | Atomic package/three levels; dynamic progress/unlock reads | Implemented and DB-tested |
+| 8 | UUID catalog repository and safe learner DTOs | Implemented and DB-tested |
+| 9 | Gateway learner catalog API | Implemented and DB-tested |
+| 10 | Admin catalog CRUD, publication, archive and clone | Implemented and DB-tested |
+| 13 | Shared publication/language/unlock checks before Run/Submit | Implemented and integration-tested with Piston double |
+| 15 | Catalog/auth/envelope/ownership contract tests | Implemented; 45 real HTTP payloads validated against OpenAPI |
 
-## Chưa làm được / không có trong backend hiện tại
+UUID Auth/refresh persistence and Run/Submission/worker consumers were integrated
+as prerequisites. Run remains synchronous; Submit keeps Pending → Redis list →
+worker → Piston → verdict. No Asynq or AI rewrite.
 
-- Chuyển catalog sang `Package/Topic → Level → Problem`, progress/unlock theo
-  mô hình mới.
-- Leaderboard list theo bài giải; `/me/stats` hiện chỉ là thống kê cá nhân.
-- Forum service/API/schema và moderation.
-- AI service, `ai_reviews`, rubric/score/findings và gọi tự động sau Accepted.
-- Ownership check đầy đủ cho mọi submission và contract test cho API đích.
+## Pending
 
-## Đã loại khỏi flow đích
+- FE tasks11/12/14: package/level filtering, problem/starter UI and editor/drafts;
+  separate frontend repository is unavailable here.
+- Accepted progress/solution writes, crash recovery, full v1 Auth/profile/history
+  and stats, leaderboard, Forum and isolated post-Accepted AI review.
+- Live Piston sandbox/resource/network validation and full-stack/frontend E2E.
+- Independent review did not complete because reviewer sessions disconnected;
+  self-review and regression checks are not an external approval.
 
-Repository/GitHub App/OAuth/webhook, repository tables, commit metadata và
-post-Accepted commit hook. Code/schema legacy vẫn còn để phục vụ migration;
-không gọi chúng là tính năng v2 và không xóa remote repository.
+## Removed
 
-## Lịch tài liệu
-
-06–07/11 schema/catalog/auth; 08–11/11 Run/editor/admin; 12–15/11
-Submit/progress/AI schema; 16–19/11 Forum/leaderboard/AI integration; 20–21/11
-kiểm thử và sửa lỗi; 22/11 nộp.
+Repository/GitHub runtime integration, old curriculum routes, migrations/seeds
+and legacy test UI were removed. There is no legacy-data migration requirement:
+this product uses a fresh standalone database. Retained unmounted legacy source
+must not be mistaken for live endpoints.

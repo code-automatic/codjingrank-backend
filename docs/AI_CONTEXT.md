@@ -1,6 +1,6 @@
 # Backend AI Context
 
-Updated 2026-11-07. See [PROJECT_STATE](../PROJECT_STATE.md) for tested revision
+Updated 2026-11-11. See [PROJECT_STATE](../PROJECT_STATE.md) for tested revision
 and current branch; [DECISIONS](DECISIONS.md) for product authority.
 
 ## Implemented repository facts
@@ -10,17 +10,21 @@ Run :8082, Submission API :8083 and worker. One shared PostgreSQL target schema
 uses UUIDs and Package → three Levels → Problem. `schema.sql` is a destructive
 fresh-database bootstrap, not an old-data migration.
 
-Repository/GitHub and Subject/Session/Lesson runtime flows were removed. Current
-Go SQL/DTOs still expect old IDs/columns and are not yet integrated with target
-schema. Root routes exist for Auth, problems, Run, Submit/history/stats and
-retained admin handlers; their existence does not establish new-schema operation.
-`/api/v1`, Forum, AI service, catalog progress and target leaderboard are not
-implemented. Existing `/me/stats` is not proof of target ranking support.
+Repository/GitHub and Subject/Session/Lesson runtime flows were removed. Sprint 2
+integrates UUID Auth/JWT/refresh persistence, learner `/api/v1` catalog and admin
+catalog CRUD/publication, and UUID Run/Submission/worker SQL. Shared execution
+checks require an active user, published package/problem, unlocked level and
+assigned active language. Submission detail is owner-only (outsiders404).
+Retired root problem/admin paths return410; unmounted legacy source is not an
+active API. Root Auth works with UUID tokens; full v1 Auth/profile/history/stats,
+Forum, AI and leaderboard remain pending. Old root stats still needs schema work.
+See [Sprint 2 acceptance](SPRINT2_ACCEPTANCE.md) for exact runtime scope.
 
 Run is synchronous sample execution via Piston. Submit persists Pending, uses
 Redis LPUSH/BRPOP, then worker/Piston/persisted verdict. No Asynq rewrite.
 Shared success/error envelopes and routing 404/405 handling are implemented;
-HEAD/204 are bodyless. No live DB/Redis/Piston integration claim.
+HEAD/204 are bodyless. Real PostgreSQL/Redis tests passed; Piston is an HTTP
+test double, not a validated live sandbox. Worker recovery is still pending.
 
 ## Target contracts for frontend mocks
 
@@ -28,7 +32,8 @@ HEAD/204 are bodyless. No live DB/Redis/Piston integration claim.
 - [Learner OpenAPI](openapi_fe.yaml): matching projection without admin-only
   schemas or hidden runtime data.
 - [Frontend guide](FRONTEND_API_CONTRACT.md): workflow, schema gaps, limits,
-  auth, compatibility and feature coverage. All operations are target-only.
+  auth, compatibility and feature coverage. Runtime status is recorded per
+  operation and in the acceptance report; unimplemented operations remain targets.
 - [Response contract](fe/RESPONSE_CONTRACT.md): the approved envelope;
   `error` is a string, `details` always present, numeric code matches HTTP.
 

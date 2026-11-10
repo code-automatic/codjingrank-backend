@@ -1,6 +1,6 @@
 # Frontend API Contract — `/api/v1`
 
-**Contract version:** 2.1.0 · **Status:** target contract for frontend mocks; routes are not live yet.
+**Contract version:** 2.1.0 · **Status:** target contract with partial local implementation; not a deployed API.
 
 **Published reference:** https://code-automatic.github.io/codjingrank-backend/
 ([learner](https://code-automatic.github.io/codjingrank-backend/learner.html),
@@ -9,7 +9,7 @@ GitHub Pages hosts documentation only; send mock requests to local Prism.
 
 Every path in the tables below is relative to `/api/v1`.
 
-The complete machine-readable contract is [`openapi_fe.yaml`](openapi_fe.yaml) for learner screens and [`openapi.yaml`](openapi.yaml) for the full Gateway, including admin. Both files use OpenAPI 3.0.3, UUID identifiers, camelCase JSON, UTC RFC3339 timestamps, and the approved response envelope. Do not infer runtime availability from this document: the current Go Gateway still exposes compatibility root routes and does not register `/api/v1`.
+The complete machine-readable contract is [`openapi_fe.yaml`](openapi_fe.yaml) for learner screens and [`openapi.yaml`](openapi.yaml) for the full Gateway, including admin. Both files use OpenAPI 3.0.3, UUID identifiers, camelCase JSON, UTC RFC3339 timestamps, and the approved response envelope. Do not infer runtime availability from this document: the Gateway now registers v1 catalog/admin catalog and Run/Submit. Full v1 Auth/profile/history and other features remain pending. See [Sprint 2 acceptance](SPRINT2_ACCEPTANCE.md) before switching a screen from mocks. Root Auth currently provides UUID tokens for integration; its DTO is not the full v1 Auth contract.
 
 ## Rules shared by every endpoint
 
@@ -158,20 +158,20 @@ These are contract-level design choices made to complete mock coverage on 07/11/
 
 ## Compatibility and implementation gates
 
-This standalone product has no old database to migrate. The clean UUID schema is already designed; existing Go SQL/DTOs still need adaptation. A new v1 UUID payload is intentionally different from current root integer-ID DTOs. Do not enable a prefix-only alias and pretend it is compatible: either update both equivalent root/v1 handlers to the same UUID contract with tests before rollout, or publish an explicit compatibility adapter/deprecation plan. Removed curriculum/GitHub routes are never restored as aliases.
+This standalone product has no old database to migrate. The clean UUID schema and Sprint 2 Auth/catalog/execution consumers are integrated locally. Remaining history/stats/profile consumers still need adaptation. Legacy integer JWTs are rejected; root Auth/Run/Submit now use UUIDs. Do not enable a prefix-only alias and pretend it is compatible: either update both equivalent root/v1 handlers to the same UUID contract with tests before rollout, or publish an explicit compatibility adapter/deprecation plan. Removed curriculum/GitHub routes are never restored as aliases.
 
-Gateway strips `/api/v1` only when the corresponding upstream understands the target payload. `GET /users/me` rewrites to Auth `/auth/me`; other mappings follow the OpenAPI `x-owner`. Cookie Path=/ must cover root/v1 refresh/logout during compatibility; remove old Path=/auth cookie, preserve all Set-Cookie headers, validate Origin against the configured allowlist and use SameSite according to deployment. Cross-site cookie deployment requires a CSRF design before enablement. Internal Auth lookup and AI job delivery are not browser endpoints and are intentionally absent from public OpenAPI.
+Gateway strips `/api/v1` only when the corresponding upstream understands the target payload. The pending `GET /users/me` integration is intended to rewrite to Auth `/auth/me`; other mappings follow the OpenAPI `x-owner`. Cookie Path=/ must cover root/v1 refresh/logout during compatibility; remove old Path=/auth cookie, preserve all Set-Cookie headers, validate Origin against the configured allowlist and use SameSite according to deployment. Cross-site cookie deployment requires a CSRF design before enablement. Internal Auth lookup and AI job delivery are not browser endpoints and are intentionally absent from public OpenAPI.
 
-### Breaking DTO differences to implement deliberately
+### Compatibility checklist (updated 11/11/2026)
 
-| Existing root runtime | Target v1 | Integration requirement |
+| Earlier root behavior / remaining gap | Target v1 | Current status / integration requirement |
 |---|---|---|
-| Integer user/problem/language IDs | UUID strings everywhere | Adapt JWT claims, middleware, SQL, DTOs and frontend types together |
-| Logout200 envelope | Logout204 bodyless/idempotent | Update both equivalent aliases or isolate through documented adapter |
+| Integer user/problem/language IDs | UUID strings everywhere | Auth/JWT/catalog/Run/Submit integrated; remaining consumers and frontend types still require alignment |
+| Logout200 envelope | Logout204 bodyless/idempotent | Root logout is bodyless204; target v1 Auth route remains pending |
 | History data.submissions without page contract | data.items/page/size/total | Add stable pagination and update clients; never silently return different root/v1 payloads |
 | Legacy stats rank.rating | Target progress/rank without rating | Remove rating assumptions; AI score is separate |
-| Root public problem detail | Target catalog requires Bearer/level checks | Treat access policy as an intentional v1 change, test401/403 |
-| Root problem test-cases (sample projection) | `/problems/{slug}/samples` | New route uses slug; hidden test routes remain admin-only |
+| Root public problem detail | Target catalog requires Bearer/level checks | Implemented v1 authentication/level checks; root problem family retired410 |
+| Root problem test-cases (sample projection) | `/problems/{slug}/samples` | Implemented slug route; root family retired410; hidden tests admin-only |
 | Six-character current registration | Target8+ with letter/digit | Validation change needs contract/regression tests |
 
 ### Feature coverage
