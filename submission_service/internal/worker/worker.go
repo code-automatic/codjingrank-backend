@@ -91,7 +91,7 @@ func (w *Worker) processJob(ctx context.Context, submissionID string) error {
 	// 3. Load problem
 	problem, err := w.repo.GetProblemByID(ctx, sub.ProblemID)
 	if err != nil {
-		errMsg := err.Error()
+		errMsg := "Judging service unavailable"
 		_ = w.repo.UpdateSubmissionResult(ctx, submissionID, constants.StatusInternalError, nil, nil, &errMsg, 0, 0)
 		return nil
 	}
@@ -104,7 +104,7 @@ func (w *Worker) processJob(ctx context.Context, submissionID string) error {
 	// 4. Load language
 	lang, err := w.repo.GetLanguageByID(ctx, sub.LanguageID)
 	if err != nil {
-		errMsg := err.Error()
+		errMsg := "Judging service unavailable"
 		_ = w.repo.UpdateSubmissionResult(ctx, submissionID, constants.StatusInternalError, nil, nil, &errMsg, 0, 0)
 		return nil
 	}
@@ -115,12 +115,13 @@ func (w *Worker) processJob(ctx context.Context, submissionID string) error {
 	}
 
 	if err = w.repo.LoadTemplate(ctx, problem, sub.LanguageID); err != nil {
-		return fmt.Errorf("load template: %w", err)
+		msg := "Judging configuration unavailable"
+		return w.repo.UpdateSubmissionResult(ctx, submissionID, constants.StatusInternalError, nil, nil, &msg, 0, 0)
 	}
 	// 5. Load test cases
 	testCases, err := w.repo.GetTestCasesByProblemID(ctx, sub.ProblemID)
 	if err != nil {
-		errMsg := err.Error()
+		errMsg := "Judging service unavailable"
 		_ = w.repo.UpdateSubmissionResult(ctx, submissionID, constants.StatusInternalError, nil, nil, &errMsg, 0, 0)
 		return nil
 	}
@@ -229,6 +230,11 @@ func (w *Worker) processJob(ctx context.Context, submissionID string) error {
 		overallStatus = constants.StatusAccepted
 	}
 
+	// Hidden-test/compiler output can include private inputs or wrapper source.
+	if errorMessage != nil {
+		safe := overallStatus
+		errorMessage = &safe
+	}
 	// 9. Update submission
 	if err := w.repo.UpdateSubmissionResult(ctx, submissionID, overallStatus, maxRuntimeMs, nil, errorMessage, passed, len(testCases)); err != nil {
 		return fmt.Errorf("update result: %w", err)

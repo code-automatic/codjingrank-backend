@@ -109,7 +109,7 @@ func (s *RunService) Run(ctx context.Context, req dto.RunRequest) (*dto.RunRespo
 		pistonResp, err := s.pistonClient.Execute(ctx, lang.PistonAlias, lang.PistonVersion, fileName, codeToRun, stdin, 0)
 		if err != nil {
 			internalError = true
-			msg := err.Error()
+			msg := "Code execution service unavailable"
 			results = append(results, dto.TestResult{
 				TestCaseID:   tc.ID,
 				Status:       dto.StatusInternalError,
@@ -140,6 +140,13 @@ func (s *RunService) Run(ctx context.Context, req dto.RunRequest) (*dto.RunRespo
 		// Judge the result
 		jr := judge.Evaluate(tc.ExpectedOutput, compileStderr, runStdout, runStderr, runCode, runSignal, runTime, 0)
 
+		if problem.ExecutionMode == "function" {
+			if jr.ErrorMessage != nil {
+				safe := jr.Status
+				jr.ErrorMessage = &safe
+			}
+			jr.Stderr = nil
+		}
 		tr := dto.TestResult{
 			TestCaseID:     tc.ID,
 			Status:         jr.Status,
