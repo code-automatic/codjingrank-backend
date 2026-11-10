@@ -5,7 +5,8 @@
 - [Learner reference](https://code-automatic.github.io/codjingrank-backend/learner.html): 42 endpoints.
 - [Full reference](https://code-automatic.github.io/codjingrank-backend/full.html): 94 endpoints including 52 admin.
 - The public site publishes only generated API references and OpenAPI contracts,
-  with synthetic examples. Backend source remains private. Pages is not an API server.
+  with synthetic examples. The workflow does not change repository visibility.
+  Pages is not an API server.
 - Publication is automatic after contract/site changes merge into `main` via
   `.github/workflows/api-docs.yml`; check the successful deployment before using
   the public copy as the latest revision.
