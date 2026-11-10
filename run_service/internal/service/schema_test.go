@@ -22,6 +22,12 @@ func TestRunUsesOnlySamplesSynchronously(t *testing.T) {
 		var req piston.Request
 		json.NewDecoder(r.Body).Decode(&req)
 		calls++
+		if req.RunTimeoutMs == nil || *req.RunTimeoutMs != 1000 {
+			t.Errorf("timeout missing: %+v", req)
+		}
+		if req.RunMemoryLimit == nil || *req.RunMemoryLimit != 128*1024*1024 {
+			t.Errorf("memory limit missing: %+v", req)
+		}
 		if req.Stdin != "1 2" {
 			t.Errorf("not a sample: %+v", req)
 		}

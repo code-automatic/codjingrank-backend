@@ -160,7 +160,7 @@ func (w *Worker) processJob(ctx context.Context, submissionID string) error {
 			codeToRun = sub.Code + "\n\n" + *problem.DriverCode
 		}
 
-		pistonResp, err := w.pistonClient.Execute(ctx, lang.PistonAlias, lang.PistonVersion, fileName, codeToRun, stdin, problem.TimeLimitMs)
+		pistonResp, err := w.pistonClient.Execute(ctx, lang.PistonAlias, lang.PistonVersion, fileName, codeToRun, stdin, problem.TimeLimitMs, problem.MemoryLimitMb)
 		if err != nil {
 			internalError = true
 			msg := err.Error()
