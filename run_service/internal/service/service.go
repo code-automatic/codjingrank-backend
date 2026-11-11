@@ -8,6 +8,7 @@ import (
 	"innogen-backend/run_service/internal/repository"
 	"innogen-backend/shared/judge"
 	"innogen-backend/shared/languageutil"
+	"innogen-backend/shared/middleware"
 	"innogen-backend/shared/models"
 	"innogen-backend/shared/piston"
 )
@@ -36,6 +37,13 @@ func (s *RunService) Run(ctx context.Context, req dto.RunRequest) (*dto.RunRespo
 		return nil, ErrInvalidInput
 	}
 
+	uid, ok := ctx.Value(middleware.UserIDKey).(string)
+	if !ok {
+		return nil, ErrInvalidInput
+	}
+	if err := s.repo.CheckExecution(ctx, uid, req.ProblemID, req.LanguageID); err != nil {
+		return nil, err
+	}
 	// Verify problem exists and get details
 	problem, err := s.repo.GetProblemByID(ctx, req.ProblemID)
 	if err != nil {
@@ -54,6 +62,9 @@ func (s *RunService) Run(ctx context.Context, req dto.RunRequest) (*dto.RunRespo
 		return nil, ErrLanguageNotFound
 	}
 
+	if err = s.repo.LoadTemplate(ctx, problem, req.LanguageID); err != nil {
+		return nil, err
+	}
 	// Load sample test cases
 	testCases, err := s.repo.GetSampleTestCases(ctx, req.ProblemID)
 	if err != nil {
@@ -62,6 +73,9 @@ func (s *RunService) Run(ctx context.Context, req dto.RunRequest) (*dto.RunRespo
 
 	// Determine the file name for code submission
 	fileName := languageutil.DetermineFileName(lang)
+	if problem.SolutionFileName != nil {
+		fileName = *problem.SolutionFileName
+	}
 
 	// Execute each test case
 	results := make([]dto.TestResult, 0, len(testCases))
@@ -92,10 +106,10 @@ func (s *RunService) Run(ctx context.Context, req dto.RunRequest) (*dto.RunRespo
 		}
 
 		// Call Piston
-		pistonResp, err := s.pistonClient.Execute(ctx, lang.PistonAlias, lang.PistonVersion, fileName, codeToRun, stdin, 0)
+		pistonResp, err := s.pistonClient.Execute(ctx, lang.PistonAlias, lang.PistonVersion, fileName, codeToRun, stdin, problem.TimeLimitMs, problem.MemoryLimitMb)
 		if err != nil {
 			internalError = true
-			msg := err.Error()
+			msg := "Code execution service unavailable"
 			results = append(results, dto.TestResult{
 				TestCaseID:   tc.ID,
 				Status:       dto.StatusInternalError,
@@ -124,8 +138,15 @@ func (s *RunService) Run(ctx context.Context, req dto.RunRequest) (*dto.RunRespo
 		}
 
 		// Judge the result
-		jr := judge.Evaluate(tc.ExpectedOutput, compileStderr, runStdout, runStderr, runCode, runSignal, runTime, 0)
+		jr := judge.Evaluate(tc.ExpectedOutput, compileStderr, runStdout, runStderr, runCode, runSignal, runTime, problem.TimeLimitMs)
 
+		if problem.ExecutionMode == "function" {
+			if jr.ErrorMessage != nil {
+				safe := jr.Status
+				jr.ErrorMessage = &safe
+			}
+			jr.Stderr = nil
+		}
 		tr := dto.TestResult{
 			TestCaseID:     tc.ID,
 			Status:         jr.Status,
@@ -177,12 +198,15 @@ func computeOverallStatus(results []dto.TestResult, passed, total int, internalE
 	// Check for error statuses in priority order
 	hasCompilationError := false
 	hasRuntimeError := false
+	hasTimeout := false
 	hasInternalError := internalError
 
 	for _, r := range results {
 		switch r.Status {
 		case dto.StatusCompilationError:
 			hasCompilationError = true
+		case dto.StatusTimeLimitExceeded:
+			hasTimeout = true
 		case dto.StatusRuntimeError:
 			hasRuntimeError = true
 		case dto.StatusInternalError:
@@ -195,6 +219,9 @@ func computeOverallStatus(results []dto.TestResult, passed, total int, internalE
 	}
 	if hasInternalError {
 		return dto.StatusInternalError
+	}
+	if hasTimeout {
+		return dto.StatusTimeLimitExceeded
 	}
 	if hasRuntimeError {
 		return dto.StatusRuntimeError

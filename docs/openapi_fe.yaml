@@ -1,14 +1,14 @@
-# Target-only /api/v1 contract, not evidence of implemented endpoints.
+# Target contract with partial local implementation; see SPRINT2_ACCEPTANCE.md.
 openapi: 3.0.3
 info:
   title: Codjingrank Learner API v1
   version: 2.1.0-contract
-  description: TARGET CONTRACT FOR MOCKS — not a live API inventory. All /api/v1 operations require backend implementation/integration.
+  description: TARGET CONTRACT WITH PARTIAL LOCAL IMPLEMENTATION — not a deployed API inventory. See SPRINT2_ACCEPTANCE.md for tested scope.
     One shared UUID database. Current root routes/DTOs are NOT compatible automatically. See FRONTEND_API_CONTRACT.md for
     access, migration and schema-extension notes. No GitHub/repository/old curriculum routes. Priority Could/Should is coverage,
     not a delivery promise.
 servers:
-- {url: 'http://localhost:8080', description: Target Gateway; run a mock on port4010 until runtime implementation}
+- {url: 'http://localhost:8080', description: Gateway; pending operations require mocks on port4010}
 - {url: 'http://localhost:4010', description: Prism mock server}
 tags:
 - {name: Auth, description: Owned by auth_service}
@@ -504,7 +504,7 @@ paths:
       description: Only active languages, stable ordering slug then id. Python 3.12, C++17, Java17 target runtimes. Hide Piston
         selector/version internals.
       security: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F03
       x-priority: Must
@@ -540,7 +540,7 @@ paths:
       - Catalog
       description: Tags retrieved
       security: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F04
       x-priority: Should
@@ -578,7 +578,7 @@ paths:
         alias or parent hierarchy.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F04
       x-priority: Must
@@ -649,7 +649,7 @@ paths:
         only. Empty levels count as completed. No hidden tests or solutions.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F04
       x-priority: Must
@@ -725,7 +725,7 @@ paths:
         level-up.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: submission_service
       x-feature: F08
       x-priority: Must
@@ -801,7 +801,7 @@ paths:
         id.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F04
       x-priority: Must
@@ -908,7 +908,7 @@ paths:
         and examples; no separate constraintsMd DB field. Sample data is public; hidden tests and wrappers are excluded.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F04
       x-priority: Must
@@ -977,7 +977,7 @@ paths:
         execution override.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F03
       x-priority: Must
@@ -1021,7 +1021,7 @@ paths:
         422 LANGUAGE_NOT_SUPPORTED. No wrapperCode.'
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F05
       x-priority: Must
@@ -1073,7 +1073,7 @@ paths:
         switch or hidden test endpoint exists for learners.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F04
       x-priority: Must
@@ -1123,7 +1123,7 @@ paths:
         No hidden test is sent or returned.'
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: partial-integration-tested
       x-owner: run_service
       x-feature: F06
       x-priority: Must
@@ -1193,7 +1193,7 @@ paths:
         is promised. Enforce publication/language/level before creating row.'
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: partial-integration-tested
       x-owner: submission_service
       x-feature: F07
       x-priority: Must

@@ -14,11 +14,13 @@ import (
 
 // Request is the JSON body sent to the Piston execute endpoint.
 type Request struct {
-	Language     string `json:"language"`
-	Version      string `json:"version"`
-	Files        []File `json:"files"`
-	Stdin        string `json:"stdin"`
-	RunTimeoutMs *int   `json:"run_timeout,omitempty"`
+	Language           string `json:"language"`
+	Version            string `json:"version"`
+	Files              []File `json:"files"`
+	Stdin              string `json:"stdin"`
+	RunTimeoutMs       *int   `json:"run_timeout,omitempty"`
+	RunMemoryLimit     *int   `json:"run_memory_limit,omitempty"`
+	CompileMemoryLimit *int   `json:"compile_memory_limit,omitempty"`
 }
 
 // File represents a single source file in a Piston request.
@@ -65,7 +67,7 @@ func NewClient(baseURL string) *Client {
 
 // Execute sends a code execution request to the Piston API.
 // If runTimeoutMs > 0, the run_timeout field is set in the request.
-func (c *Client) Execute(ctx context.Context, language, version, fileName, code, stdin string, runTimeoutMs int) (*Response, error) {
+func (c *Client) Execute(ctx context.Context, language, version, fileName, code, stdin string, runTimeoutMs, memoryLimitMB int) (*Response, error) {
 	req := Request{
 		Language: language,
 		Version:  version,
@@ -78,6 +80,11 @@ func (c *Client) Execute(ctx context.Context, language, version, fileName, code,
 		req.RunTimeoutMs = &runTimeoutMs
 	}
 
+	if memoryLimitMB > 0 {
+		limit := memoryLimitMB * 1024 * 1024
+		req.RunMemoryLimit = &limit
+		req.CompileMemoryLimit = &limit
+	}
 	body, err := json.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("piston: failed to marshal request: %w", err)

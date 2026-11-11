@@ -8,7 +8,7 @@ import (
 )
 
 // GetUserStats calculates dashboard statistics for a user.
-func (r *SubmissionRepository) GetUserStats(ctx context.Context, userID int) (*dto.UserStatsResponse, error) {
+func (r *SubmissionRepository) GetUserStats(ctx context.Context, userID string) (*dto.UserStatsResponse, error) {
 	stats := &dto.UserStatsResponse{
 		Activity: []dto.Activity{},
 	}

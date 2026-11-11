@@ -2,9 +2,9 @@ package problem
 
 import (
 	"encoding/json"
+	"innogen-backend/shared/middleware"
 	"log/slog"
 	"net/http"
-	"strconv"
 	"time"
 
 	"innogen-backend/shared/response"
@@ -28,7 +28,7 @@ type ProblemResponse struct {
 
 // ProblemDetail contains the full problem data returned to the client.
 type ProblemDetail struct {
-	ID              int             `json:"id"`
+	ID              string          `json:"id"`
 	Slug            string          `json:"slug"`
 	Title           string          `json:"title"`
 	Difficulty      string          `json:"difficulty"`
@@ -44,8 +44,8 @@ type ProblemDetail struct {
 
 // TestCaseResponse is the response DTO for a single test case.
 type TestCaseResponse struct {
-	ID             int     `json:"id"`
-	ProblemID      int     `json:"problemId"`
+	ID             string  `json:"id"`
+	ProblemID      string  `json:"problemId"`
 	InputData      *string `json:"inputData"`
 	ExpectedOutput string  `json:"expectedOutput"`
 	OrderIndex     int     `json:"orderIndex"`
@@ -124,8 +124,8 @@ func (h *Handler) GetProblem(w http.ResponseWriter, r *http.Request) {
 // ListTestCases handles GET /problems/{id}/test-cases?visibility=sample.
 func (h *Handler) ListTestCases(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
+	id := idStr
+	if !middleware.ValidUUID(id) {
 		response.ErrorSimple(w, http.StatusBadRequest, "invalid problem id")
 		return
 	}

@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"strconv"
 	"time"
 
 	"innogen-backend/shared/middleware"
@@ -46,7 +45,7 @@ func NewAuthenticatedProxy(targetURL string, log *slog.Logger) (*httputil.Revers
 		originalDirector(req)
 
 		if userID, ok := middleware.GetUserID(req); ok {
-			req.Header.Set("X-User-ID", strconv.Itoa(userID))
+			req.Header.Set("X-User-ID", userID)
 		}
 		if email, ok := middleware.GetUserEmail(req); ok {
 			req.Header.Set("X-User-Email", email)

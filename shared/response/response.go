@@ -1,6 +1,7 @@
 package response
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"io"
@@ -119,5 +120,16 @@ func DecodeJSON(r *http.Request, dst any) error {
 	if len(body) == 0 {
 		return errors.New("request body is empty")
 	}
-	return json.Unmarshal(body, dst)
+	if bytes.Equal(bytes.TrimSpace(body), []byte("null")) {
+		return errors.New("request body must be an object")
+	}
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.DisallowUnknownFields()
+	if err = decoder.Decode(dst); err != nil {
+		return err
+	}
+	if decoder.Decode(new(any)) != io.EOF {
+		return errors.New("expected one JSON value")
+	}
+	return nil
 }

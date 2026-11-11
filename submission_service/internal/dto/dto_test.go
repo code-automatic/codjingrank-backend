@@ -11,31 +11,31 @@ func TestSubmitRequest_Validate(t *testing.T) {
 	}{
 		{
 			name:         "valid",
-			req:          SubmitRequest{ProblemID: 1, LanguageID: 1, Code: "console.log(1)"},
+			req:          SubmitRequest{ProblemID: "00000000-0000-0000-0000-000000000000", LanguageID: "00000000-0000-0000-0000-000000000000", Code: "console.log(1)"},
 			wantErrField: "",
 			wantErrMsg:   "",
 		},
 		{
 			name:         "missing problemId",
-			req:          SubmitRequest{LanguageID: 1, Code: "console.log(1)"},
+			req:          SubmitRequest{LanguageID: "00000000-0000-0000-0000-000000000000", Code: "console.log(1)"},
 			wantErrField: "problemId",
-			wantErrMsg:   "Problem ID is required",
+			wantErrMsg:   "Invalid problem ID",
 		},
 		{
 			name:         "missing languageId",
-			req:          SubmitRequest{ProblemID: 1, Code: "console.log(1)"},
+			req:          SubmitRequest{ProblemID: "00000000-0000-0000-0000-000000000000", Code: "console.log(1)"},
 			wantErrField: "languageId",
-			wantErrMsg:   "Language ID is required",
+			wantErrMsg:   "Invalid language ID",
 		},
 		{
 			name:         "empty code",
-			req:          SubmitRequest{ProblemID: 1, LanguageID: 1, Code: ""},
+			req:          SubmitRequest{ProblemID: "00000000-0000-0000-0000-000000000000", LanguageID: "00000000-0000-0000-0000-000000000000", Code: ""},
 			wantErrField: "code",
 			wantErrMsg:   "Code must not be empty",
 		},
 		{
 			name:         "whitespace-only code",
-			req:          SubmitRequest{ProblemID: 1, LanguageID: 1, Code: "   \n\t  "},
+			req:          SubmitRequest{ProblemID: "00000000-0000-0000-0000-000000000000", LanguageID: "00000000-0000-0000-0000-000000000000", Code: "   \n\t  "},
 			wantErrField: "code",
 			wantErrMsg:   "Code must not be empty",
 		},

@@ -40,3 +40,28 @@ func TestProxySurfaceAfterLegacyRemoval(t *testing.T) {
 		}
 	}
 }
+
+func TestRetiredCatalogReturnsGone(t *testing.T) {
+	mux := http.NewServeMux()
+	RegisterRetiredCatalog(mux)
+	for _, path := range []string{"/problems/daily-challenge", "/problems/anything", "/problems/1/test-cases", "/admin/problems", "/admin/languages/1"} {
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, httptest.NewRequest("GET", path, nil))
+		if rec.Code != 410 {
+			t.Fatalf("%s got %d", path, rec.Code)
+		}
+	}
+}
+
+func TestV1ExecutionRoutesProtected(t *testing.T) {
+	mux := http.NewServeMux()
+	p := &httputil.ReverseProxy{}
+	RegisterProxyRoutes(mux, &ProxySet{AuthPublic: p, Auth: p, Run: p, Submission: p}, slog.New(slog.NewTextHandler(io.Discard, nil)), "test-secret")
+	for _, path := range []string{"/api/v1/run", "/api/v1/submit"} {
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, httptest.NewRequest("POST", path, nil))
+		if rec.Code != 401 {
+			t.Fatalf("%s got %d", path, rec.Code)
+		}
+	}
+}

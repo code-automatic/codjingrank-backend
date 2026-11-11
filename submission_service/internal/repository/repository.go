@@ -2,9 +2,11 @@ package repository
 
 import (
 	"context"
-	"encoding/json"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"innogen-backend/shared/catalog"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -26,7 +28,7 @@ func New(pool *pgxpool.Pool) *SubmissionRepository {
 	return &SubmissionRepository{pool: pool}
 }
 
-const submissionColumnList = `id, user_id, problem_id, language_id, code, status, runtime_ms, memory_kb, error_message, pass_count, total_testcases, created_at, judged_at`
+const submissionColumnList = `id, user_id, problem_id, language_id, source_code, status, runtime_ms, memory_kb, error_message, pass_count, total_testcases, created_at, judged_at`
 
 const selectAllSubmissionColumns = `SELECT ` + submissionColumnList + ` FROM submissions`
 
@@ -35,13 +37,13 @@ const submissionColumnListNoCode = `id, user_id, problem_id, language_id, status
 const selectSubmissionColumnsNoCode = `SELECT ` + submissionColumnListNoCode + ` FROM submissions`
 
 // CreateSubmission inserts a new Pending submission and returns it.
-func (r *SubmissionRepository) CreateSubmission(ctx context.Context, userID, problemID, languageID int, code string) (*models.Submission, error) {
+func (r *SubmissionRepository) CreateSubmission(ctx context.Context, userID string, problemID, languageID string, code string) (*models.Submission, error) {
 	s := &models.Submission{}
 	err := r.pool.QueryRow(ctx,
-		`INSERT INTO submissions (user_id, problem_id, language_id, code)
-         VALUES ($1, $2, $3, $4)
+		`INSERT INTO submissions (user_id, problem_id, language_id, source_code,source_hash)
+         VALUES ($1, $2, $3, $4,$5)
          RETURNING `+submissionColumnList,
-		userID, problemID, languageID, code,
+		userID, problemID, languageID, code, sourceHash(code),
 	).Scan(
 		&s.ID, &s.UserID, &s.ProblemID, &s.LanguageID, &s.Code,
 		&s.Status, &s.RuntimeMs, &s.MemoryKb, &s.ErrorMessage,
@@ -54,6 +56,9 @@ func (r *SubmissionRepository) CreateSubmission(ctx context.Context, userID, pro
 		}
 		return nil, fmt.Errorf("repository.CreateSubmission: %w", err)
 	}
+	if err = r.EnrichSubmission(ctx, s); err != nil {
+		return nil, err
+	}
 	return s, nil
 }
 
@@ -62,7 +67,7 @@ func (r *SubmissionRepository) CreateSubmission(ctx context.Context, userID, pro
 func (r *SubmissionRepository) FindByID(ctx context.Context, id string) (*models.Submission, error) {
 	s := &models.Submission{}
 	err := r.pool.QueryRow(ctx,
-		`SELECT s.id, s.user_id, s.problem_id, s.language_id, s.code, s.status, s.runtime_ms, s.memory_kb, s.error_message, s.pass_count, s.total_testcases,
+		`SELECT s.id, s.user_id, s.problem_id, s.language_id, s.source_code, s.status, s.runtime_ms, s.memory_kb, s.error_message, s.pass_count, s.total_testcases,
 			s.created_at, s.judged_at
 		FROM submissions s
 		WHERE s.id = $1`,
@@ -79,11 +84,14 @@ func (r *SubmissionRepository) FindByID(ctx context.Context, id string) (*models
 	if err != nil {
 		return nil, fmt.Errorf("repository.FindByID: %w", err)
 	}
+	if err = r.EnrichSubmission(ctx, s); err != nil {
+		return nil, err
+	}
 	return s, nil
 }
 
 // FindByUserID returns all submissions for a user, newest first, without code.
-func (r *SubmissionRepository) FindByUserID(ctx context.Context, userID int) ([]models.Submission, error) {
+func (r *SubmissionRepository) FindByUserID(ctx context.Context, userID string) ([]models.Submission, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT s.id, s.user_id, s.problem_id, s.language_id, s.status, s.runtime_ms, s.memory_kb, s.error_message, s.pass_count, s.total_testcases,
 			s.created_at, s.judged_at
@@ -119,10 +127,10 @@ func (r *SubmissionRepository) FindByUserID(ctx context.Context, userID int) ([]
 
 // FindLatestByUserAndProblem returns the most recent submission for a user+problem pair.
 // Returns nil, nil if none found.
-func (r *SubmissionRepository) FindLatestByUserAndProblem(ctx context.Context, userID, problemID int) (*models.Submission, error) {
+func (r *SubmissionRepository) FindLatestByUserAndProblem(ctx context.Context, userID string, problemID string) (*models.Submission, error) {
 	s := &models.Submission{}
 	err := r.pool.QueryRow(ctx,
-		`SELECT s.id, s.user_id, s.problem_id, s.language_id, s.code, s.status, s.runtime_ms, s.memory_kb, s.error_message, s.pass_count, s.total_testcases,
+		`SELECT s.id, s.user_id, s.problem_id, s.language_id, s.source_code, s.status, s.runtime_ms, s.memory_kb, s.error_message, s.pass_count, s.total_testcases,
 			s.created_at, s.judged_at
 		FROM submissions s
 		WHERE s.user_id = $1 AND s.problem_id = $2
@@ -141,11 +149,14 @@ func (r *SubmissionRepository) FindLatestByUserAndProblem(ctx context.Context, u
 	if err != nil {
 		return nil, fmt.Errorf("repository.FindLatestByUserAndProblem: %w", err)
 	}
+	if err = r.EnrichSubmission(ctx, s); err != nil {
+		return nil, err
+	}
 	return s, nil
 }
 
 // ProblemExists checks whether a problem with the given ID exists.
-func (r *SubmissionRepository) ProblemExists(ctx context.Context, id int) (bool, error) {
+func (r *SubmissionRepository) ProblemExists(ctx context.Context, id string) (bool, error) {
 	var exists bool
 	err := r.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM problems WHERE id = $1)`, id).Scan(&exists)
 	if err != nil {
@@ -155,7 +166,7 @@ func (r *SubmissionRepository) ProblemExists(ctx context.Context, id int) (bool,
 }
 
 // LanguageExists checks whether an active language with the given ID exists.
-func (r *SubmissionRepository) LanguageExists(ctx context.Context, id int) (bool, error) {
+func (r *SubmissionRepository) LanguageExists(ctx context.Context, id string) (bool, error) {
 	var exists bool
 	err := r.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM languages WHERE id = $1 AND is_active = true)`, id).Scan(&exists)
 	if err != nil {
@@ -166,72 +177,29 @@ func (r *SubmissionRepository) LanguageExists(ctx context.Context, id int) (bool
 
 // GetProblemByID retrieves a full problem by ID.
 // Returns nil, nil if not found.
-func (r *SubmissionRepository) GetProblemByID(ctx context.Context, id int) (*models.Problem, error) {
-	p := &models.Problem{}
-	var sampleTCBytes []byte
-	err := r.pool.QueryRow(ctx,
-		`SELECT id, slug, title, difficulty, problem_md, time_limit_ms, memory_limit_mb, acceptance_rate, is_published, execution_mode, function_name, initial_code, driver_code, solution_file_name, sample_test_cases, created_at, updated_at
-         FROM problems WHERE id = $1`, id,
-	).Scan(&p.ID, &p.Slug, &p.Title, &p.Difficulty, &p.ProblemMD, &p.TimeLimitMs, &p.MemoryLimitMb,
-		&p.AcceptanceRate, &p.IsPublished, &p.ExecutionMode, &p.FunctionName, &p.InitialCode, &p.DriverCode, &p.SolutionFileName, &sampleTCBytes, &p.CreatedAt, &p.UpdatedAt)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("repository.GetProblemByID: %w", err)
-	}
-	p.SampleTestCases = json.RawMessage(sampleTCBytes)
-	return p, nil
+func (r *SubmissionRepository) GetProblemByID(ctx context.Context, id string) (*models.Problem, error) {
+	return catalog.New(r.pool).ExecutionProblem(ctx, id)
 }
-
-// GetLanguageByID retrieves an active language by ID.
-// Returns nil, nil if not found.
-func (r *SubmissionRepository) GetLanguageByID(ctx context.Context, id int) (*models.Language, error) {
-	l := &models.Language{}
-	err := r.pool.QueryRow(ctx,
-		`SELECT id, name, piston_alias, piston_version, file_extension, default_file_name, is_active, created_at, updated_at
-         FROM languages WHERE id = $1 AND is_active = true`, id,
-	).Scan(&l.ID, &l.Name, &l.PistonAlias, &l.PistonVersion, &l.FileExtension, &l.DefaultFileName,
-		&l.IsActive, &l.CreatedAt, &l.UpdatedAt)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("repository.GetLanguageByID: %w", err)
-	}
-	return l, nil
+func (r *SubmissionRepository) GetLanguageByID(ctx context.Context, id string) (*models.Language, error) {
+	return catalog.New(r.pool).ExecutionLanguage(ctx, id)
 }
-
-// GetTestCasesByProblemID retrieves all test cases for a problem, ordered by order_index.
-// Returns an empty slice if none found.
-func (r *SubmissionRepository) GetTestCasesByProblemID(ctx context.Context, problemID int) ([]models.TestCase, error) {
-	rows, err := r.pool.Query(ctx,
-		`SELECT id, problem_id, visibility, input_data, expected_output, execute_code, order_index, created_at
-         FROM test_cases WHERE problem_id = $1 ORDER BY order_index ASC`, problemID,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("repository.GetTestCasesByProblemID: %w", err)
-	}
-	defer rows.Close()
-
-	var testCases []models.TestCase
-	for rows.Next() {
-		var tc models.TestCase
-		if err := rows.Scan(&tc.ID, &tc.ProblemID, &tc.Visibility, &tc.InputData, &tc.ExpectedOutput,
-			&tc.ExecuteCode, &tc.OrderIndex, &tc.CreatedAt); err != nil {
-			return nil, fmt.Errorf("repository.GetTestCasesByProblemID: %w", err)
-		}
-		testCases = append(testCases, tc)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("repository.GetTestCasesByProblemID: %w", err)
-	}
-	return testCases, nil
+func (r *SubmissionRepository) GetTestCasesByProblemID(ctx context.Context, id string) ([]models.TestCase, error) {
+	return catalog.New(r.pool).ExecutionTests(ctx, id, true)
+}
+func (r *SubmissionRepository) CheckExecution(ctx context.Context, uid, pid, lid string) error {
+	return catalog.New(r.pool).CheckExecution(ctx, uid, pid, lid)
+}
+func (r *SubmissionRepository) LoadTemplate(ctx context.Context, p *models.Problem, lid string) error {
+	return catalog.New(r.pool).ExecutionTemplate(ctx, p, lid)
+}
+func sourceHash(code string) string {
+	sum := sha256.Sum256([]byte(code))
+	return hex.EncodeToString(sum[:])
 }
 
 // UpdateSubmissionStatus updates the status of a submission.
 func (r *SubmissionRepository) UpdateSubmissionStatus(ctx context.Context, id string, status string) error {
-	_, err := r.pool.Exec(ctx, `UPDATE submissions SET status = $2 WHERE id = $1`, id, status)
+	_, err := r.pool.Exec(ctx, `UPDATE submissions SET status = $2,claimed_at=CASE WHEN $2::text='Running' THEN now() ELSE claimed_at END WHERE id = $1`, id, status)
 	if err != nil {
 		return fmt.Errorf("repository.UpdateSubmissionStatus: %w", err)
 	}
@@ -251,4 +219,14 @@ func (r *SubmissionRepository) UpdateSubmissionResult(ctx context.Context, id st
 		return fmt.Errorf("repository.UpdateSubmissionResult: %w", err)
 	}
 	return nil
+}
+
+// ClaimSubmission permits one worker to execute a Pending submission.
+func (r *SubmissionRepository) ClaimSubmission(ctx context.Context, id string) (bool, error) {
+	result, err := r.pool.Exec(ctx, `UPDATE submissions SET status='Running',claimed_at=now(),attempt_count=attempt_count+1 WHERE id=$1 AND status='Pending'`, id)
+	return result.RowsAffected() == 1, err
+}
+
+func (r *SubmissionRepository) EnrichSubmission(ctx context.Context, s *models.Submission) error {
+	return r.pool.QueryRow(ctx, `SELECT p.slug,p.title,l.slug FROM problems p CROSS JOIN languages l WHERE p.id=$1 AND l.id=$2`, s.ProblemID, s.LanguageID).Scan(&s.ProblemSlug, &s.ProblemTitle, &s.LanguageSlug)
 }

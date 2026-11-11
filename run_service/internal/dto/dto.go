@@ -1,6 +1,7 @@
 package dto
 
 import (
+	"innogen-backend/shared/middleware"
 	"strings"
 
 	"innogen-backend/shared/constants"
@@ -18,18 +19,18 @@ const (
 
 // RunRequest is the JSON body for POST /run.
 type RunRequest struct {
-	ProblemID  int    `json:"problemId"`
-	LanguageID int    `json:"languageId"`
+	ProblemID  string `json:"problemId"`
+	LanguageID string `json:"languageId"`
 	Code       string `json:"code"`
 }
 
 // Validate returns a field name and an error message string if the request is invalid, or empty strings if valid.
 func (r *RunRequest) Validate() (string, string) {
-	if r.ProblemID <= 0 {
-		return "problemId", "problemId must be greater than 0"
+	if !middleware.ValidUUID(r.ProblemID) {
+		return "problemId", "Invalid problem ID"
 	}
-	if r.LanguageID <= 0 {
-		return "languageId", "languageId must be greater than 0"
+	if !middleware.ValidUUID(r.LanguageID) {
+		return "languageId", "Invalid language ID"
 	}
 	if strings.TrimSpace(r.Code) == "" {
 		return "code", "code must not be empty"
@@ -42,15 +43,15 @@ func (r *RunRequest) Validate() (string, string) {
 
 // TestResult represents the result of a single test case execution.
 type TestResult struct {
-	TestCaseID     int     `json:"testCaseId"`
+	TestCaseID     string  `json:"testCaseId"`
 	Status         string  `json:"status"`
 	InputData      string  `json:"inputData"`
 	ExpectedOutput string  `json:"expectedOutput"`
 	ActualOutput   string  `json:"actualOutput"`
 	RuntimeMs      *int    `json:"runtimeMs"`
-	ErrorMessage   *string `json:"errorMessage,omitempty"`
-	ErrorType      *string `json:"errorType,omitempty"`
-	Stderr         *string `json:"stderr,omitempty"`
+	ErrorMessage   *string `json:"errorMessage"`
+	ErrorType      *string `json:"errorType"`
+	Stderr         *string `json:"stderr"`
 }
 
 // RunResponse is the JSON body returned by POST /run.

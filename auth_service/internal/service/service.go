@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"time"
 
@@ -75,7 +76,9 @@ func (s *AuthService) Login(ctx context.Context, w http.ResponseWriter, r *http.
 	if err != nil {
 		return nil, err
 	}
-	_ = s.repo.CreateRefreshToken(ctx, user.ID, hashToken(rawRefresh), "", "", time.Now().Add(time.Duration(s.cfg.RefreshTokenTTLDays)*24*time.Hour))
+	if err = s.repo.CreateRefreshToken(ctx, user.ID, hashToken(rawRefresh), "", "", time.Now().Add(time.Duration(s.cfg.RefreshTokenTTLDays)*24*time.Hour)); err != nil {
+		return nil, err
+	}
 	s.setRefreshCookie(w, rawRefresh)
 
 	return &dto.LoginResponse{
@@ -85,7 +88,7 @@ func (s *AuthService) Login(ctx context.Context, w http.ResponseWriter, r *http.
 }
 
 // CurrentUser returns the user info for the given user ID.
-func (s *AuthService) CurrentUser(ctx context.Context, userID int) (*dto.MeResponse, error) {
+func (s *AuthService) CurrentUser(ctx context.Context, userID string) (*dto.MeResponse, error) {
 	user, err := s.repo.FindByID(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -133,12 +136,18 @@ func (s *AuthService) Refresh(ctx context.Context, w http.ResponseWriter, r *htt
 	}
 
 	// rotate: revoke old, create new
-	_ = s.repo.RevokeRefreshToken(ctx, tokenID)
 	newRaw, err := generateRefreshToken()
 	if err != nil {
 		return nil, err
 	}
-	_ = s.repo.CreateRefreshToken(ctx, userID, hashToken(newRaw), r.UserAgent(), r.RemoteAddr, time.Now().Add(time.Duration(s.cfg.RefreshTokenTTLDays)*24*time.Hour))
+	ip, _, _ := net.SplitHostPort(r.RemoteAddr)
+	rotated, err := s.repo.RotateRefreshToken(ctx, tokenID, userID, hashToken(newRaw), r.UserAgent(), ip, time.Now().Add(time.Duration(s.cfg.RefreshTokenTTLDays)*24*time.Hour))
+	if err != nil {
+		return nil, err
+	}
+	if !rotated {
+		return nil, ErrRefreshTokenRevoked
+	}
 	s.setRefreshCookie(w, newRaw)
 
 	accessToken, err := s.jwtSvc.GenerateToken(user.ID, user.Email, user.Role, s.cfg.AccessTokenTTLMinutes)
@@ -155,7 +164,6 @@ func (s *AuthService) Logout(ctx context.Context, w http.ResponseWriter, r *http
 		tokenHash := hashToken(cookie.Value)
 		tokenID, _, _, _, _ := s.repo.FindRefreshToken(ctx, tokenHash)
 		if tokenID != "" {
-			_ = s.repo.RevokeRefreshToken(ctx, tokenID)
 		}
 	}
 	s.clearRefreshCookie(w)

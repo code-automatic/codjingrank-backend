@@ -79,16 +79,19 @@ func (w *Worker) processJob(ctx context.Context, submissionID string) error {
 		return nil
 	}
 
-	// 2. Mark Running
-	if err := w.repo.UpdateSubmissionStatus(ctx, submissionID, constants.StatusRunning); err != nil {
-		w.log.Warn("failed to update status to running", slog.String("error", err.Error()))
-		// Continue anyway — best effort
+	// Duplicate delivery must not execute or overwrite a persisted verdict.
+	claimed, err := w.repo.ClaimSubmission(ctx, submissionID)
+	if err != nil {
+		return fmt.Errorf("claim submission: %w", err)
+	}
+	if !claimed {
+		return nil
 	}
 
 	// 3. Load problem
 	problem, err := w.repo.GetProblemByID(ctx, sub.ProblemID)
 	if err != nil {
-		errMsg := err.Error()
+		errMsg := "Judging service unavailable"
 		_ = w.repo.UpdateSubmissionResult(ctx, submissionID, constants.StatusInternalError, nil, nil, &errMsg, 0, 0)
 		return nil
 	}
@@ -101,7 +104,7 @@ func (w *Worker) processJob(ctx context.Context, submissionID string) error {
 	// 4. Load language
 	lang, err := w.repo.GetLanguageByID(ctx, sub.LanguageID)
 	if err != nil {
-		errMsg := err.Error()
+		errMsg := "Judging service unavailable"
 		_ = w.repo.UpdateSubmissionResult(ctx, submissionID, constants.StatusInternalError, nil, nil, &errMsg, 0, 0)
 		return nil
 	}
@@ -111,16 +114,23 @@ func (w *Worker) processJob(ctx context.Context, submissionID string) error {
 		return nil
 	}
 
+	if err = w.repo.LoadTemplate(ctx, problem, sub.LanguageID); err != nil {
+		msg := "Judging configuration unavailable"
+		return w.repo.UpdateSubmissionResult(ctx, submissionID, constants.StatusInternalError, nil, nil, &msg, 0, 0)
+	}
 	// 5. Load test cases
 	testCases, err := w.repo.GetTestCasesByProblemID(ctx, sub.ProblemID)
 	if err != nil {
-		errMsg := err.Error()
+		errMsg := "Judging service unavailable"
 		_ = w.repo.UpdateSubmissionResult(ctx, submissionID, constants.StatusInternalError, nil, nil, &errMsg, 0, 0)
 		return nil
 	}
 
 	// 6. Determine file name
 	fileName := languageutil.DetermineFileName(lang)
+	if problem.SolutionFileName != nil {
+		fileName = *problem.SolutionFileName
+	}
 
 	// 7. Execute and judge each test case
 	var (
@@ -150,7 +160,7 @@ func (w *Worker) processJob(ctx context.Context, submissionID string) error {
 			codeToRun = sub.Code + "\n\n" + *problem.DriverCode
 		}
 
-		pistonResp, err := w.pistonClient.Execute(ctx, lang.PistonAlias, lang.PistonVersion, fileName, codeToRun, stdin, problem.TimeLimitMs)
+		pistonResp, err := w.pistonClient.Execute(ctx, lang.PistonAlias, lang.PistonVersion, fileName, codeToRun, stdin, problem.TimeLimitMs, problem.MemoryLimitMb)
 		if err != nil {
 			internalError = true
 			msg := err.Error()
@@ -220,6 +230,11 @@ func (w *Worker) processJob(ctx context.Context, submissionID string) error {
 		overallStatus = constants.StatusAccepted
 	}
 
+	// Hidden-test/compiler output can include private inputs or wrapper source.
+	if errorMessage != nil {
+		safe := overallStatus
+		errorMessage = &safe
+	}
 	// 9. Update submission
 	if err := w.repo.UpdateSubmissionResult(ctx, submissionID, overallStatus, maxRuntimeMs, nil, errorMessage, passed, len(testCases)); err != nil {
 		return fmt.Errorf("update result: %w", err)

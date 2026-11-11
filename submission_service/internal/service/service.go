@@ -35,27 +35,14 @@ func New(repo *repository.SubmissionRepository, q *queue.Queue, log *slog.Logger
 }
 
 // CreateSubmission validates inputs and creates a new Pending submission.
-func (s *SubmissionService) CreateSubmission(ctx context.Context, userID int, req dto.SubmitRequest) (*models.Submission, error) {
+func (s *SubmissionService) CreateSubmission(ctx context.Context, userID string, req dto.SubmitRequest) (*models.Submission, error) {
 	if _, msg := req.Validate(); msg != "" {
 		return nil, fmt.Errorf("%w: %s", ErrInvalidInput, msg)
 	}
 
-	exists, err := s.repo.ProblemExists(ctx, req.ProblemID)
-	if err != nil {
+	if err := s.repo.CheckExecution(ctx, userID, req.ProblemID, req.LanguageID); err != nil {
 		return nil, err
 	}
-	if !exists {
-		return nil, ErrProblemNotFound
-	}
-
-	exists, err = s.repo.LanguageExists(ctx, req.LanguageID)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, ErrLanguageNotFound
-	}
-
 	submission, err := s.repo.CreateSubmission(ctx, userID, req.ProblemID, req.LanguageID, req.Code)
 	if err != nil {
 		return nil, err
@@ -83,7 +70,7 @@ func (s *SubmissionService) GetByID(ctx context.Context, id string) (*models.Sub
 }
 
 // ListByUserID returns all submissions for a user, newest first.
-func (s *SubmissionService) ListByUserID(ctx context.Context, userID int) ([]dto.SubmissionListItem, error) {
+func (s *SubmissionService) ListByUserID(ctx context.Context, userID string) ([]dto.SubmissionListItem, error) {
 	subs, err := s.repo.FindByUserID(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -96,7 +83,7 @@ func (s *SubmissionService) ListByUserID(ctx context.Context, userID int) ([]dto
 }
 
 // GetLatestByUserAndProblem returns the most recent submission for a user+problem pair.
-func (s *SubmissionService) GetLatestByUserAndProblem(ctx context.Context, userID, problemID int) (*models.Submission, error) {
+func (s *SubmissionService) GetLatestByUserAndProblem(ctx context.Context, userID string, problemID string) (*models.Submission, error) {
 	sub, err := s.repo.FindLatestByUserAndProblem(ctx, userID, problemID)
 	if err != nil {
 		return nil, err

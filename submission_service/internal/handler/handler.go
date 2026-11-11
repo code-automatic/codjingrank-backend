@@ -4,8 +4,8 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"strconv"
 
+	"innogen-backend/shared/catalog"
 	"innogen-backend/shared/middleware"
 	"innogen-backend/shared/response"
 	"innogen-backend/submission_service/internal/dto"
@@ -46,6 +46,14 @@ func (h *Handler) Submit(w http.ResponseWriter, r *http.Request) {
 	sub, err := h.svc.CreateSubmission(r.Context(), userID, req)
 	if err != nil {
 		switch {
+		case errors.Is(err, catalog.ErrProblemNotFound):
+			response.ErrorSimple(w, 404, "Problem not found")
+		case errors.Is(err, catalog.ErrLevelLocked):
+			response.Error(w, 403, "Complete previous levels first", "LEVEL_LOCKED")
+		case errors.Is(err, catalog.ErrAccountInactive):
+			response.Error(w, 403, "Account is inactive", "ACCOUNT_INACTIVE")
+		case errors.Is(err, catalog.ErrLanguageUnsupported):
+			response.Error(w, 422, "Unsupported language", "LANGUAGE_NOT_SUPPORTED")
 		case errors.Is(err, service.ErrInvalidInput):
 			response.ErrorSimple(w, http.StatusBadRequest, "Invalid input")
 		case errors.Is(err, service.ErrProblemNotFound):
@@ -85,6 +93,11 @@ func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	uid, ok := middleware.GetUserID(r)
+	if !ok || sub.UserID != uid {
+		response.ErrorSimple(w, 404, "Submission not found")
+		return
+	}
 	response.Success(w, http.StatusOK, dto.GetSubmissionResponse{Submission: sub}, "Submission retrieved successfully")
 }
 
@@ -115,8 +128,8 @@ func (h *Handler) GetLatestForProblem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	problemIDStr := r.PathValue("problemId")
-	problemID, err := strconv.Atoi(problemIDStr)
-	if err != nil || problemID <= 0 {
+	problemID := problemIDStr
+	if !middleware.ValidUUID(problemID) {
 		response.ErrorSimple(w, http.StatusBadRequest, "Invalid problem ID")
 		return
 	}

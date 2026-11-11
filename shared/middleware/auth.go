@@ -2,8 +2,8 @@ package middleware
 
 import (
 	"context"
+	"github.com/jackc/pgx/v5/pgtype"
 	"net/http"
-	"strconv"
 	"strings"
 
 	jwtlib "github.com/golang-jwt/jwt/v5"
@@ -22,7 +22,7 @@ const (
 // Claims represents the JWT claims extracted from a token.
 type Claims struct {
 	jwtlib.RegisteredClaims
-	UserID int    `json:"userId"`
+	UserID string `json:"userId"`
 	Email  string `json:"email"`
 	Role   string `json:"role"`
 }
@@ -51,8 +51,8 @@ func Auth(jwtSecret string) func(http.Handler) http.Handler {
 					return nil, jwtlib.ErrSignatureInvalid
 				}
 				return []byte(jwtSecret), nil
-			})
-			if err != nil || !token.Valid {
+			}, jwtlib.WithValidMethods([]string{"HS256"}), jwtlib.WithExpirationRequired())
+			if err != nil || !token.Valid || !ValidUUID(claims.UserID) || claims.Subject != claims.UserID {
 				response.ErrorSimple(w, http.StatusUnauthorized, "Invalid or expired token")
 				return
 			}
@@ -68,8 +68,8 @@ func Auth(jwtSecret string) func(http.Handler) http.Handler {
 }
 
 // GetUserID extracts the user ID from the request context.
-func GetUserID(r *http.Request) (int, bool) {
-	id, ok := r.Context().Value(UserIDKey).(int)
+func GetUserID(r *http.Request) (string, bool) {
+	id, ok := r.Context().Value(UserIDKey).(string)
 	return id, ok
 }
 
@@ -97,8 +97,8 @@ func XUserID() func(http.Handler) http.Handler {
 				return
 			}
 
-			userID, err := strconv.Atoi(userIDStr)
-			if err != nil || userID <= 0 {
+			userID := userIDStr
+			if !ValidUUID(userID) {
 				response.ErrorSimple(w, http.StatusUnauthorized, "Invalid X-User-ID")
 				return
 			}
@@ -107,4 +107,10 @@ func XUserID() func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
+}
+
+// ValidUUID accepts canonical UUID identities at HTTP boundaries.
+func ValidUUID(value string) bool {
+	var id pgtype.UUID
+	return len(value) == 36 && id.Scan(value) == nil && id.Valid
 }

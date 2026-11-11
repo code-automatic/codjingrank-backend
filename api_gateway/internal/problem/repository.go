@@ -75,7 +75,7 @@ func (r *ProblemRepository) FindByID(ctx context.Context, id int) (*models.Probl
 // FindTestCasesByProblemID returns test cases for a given problem filtered by visibility.
 // For public API usage, visibility should be "sample".
 // Hidden test cases are never returned unless visibility="hidden" is explicitly passed.
-func (r *ProblemRepository) FindTestCasesByProblemID(ctx context.Context, problemID int, visibility string) ([]models.TestCase, error) {
+func (r *ProblemRepository) FindTestCasesByProblemID(ctx context.Context, problemID string, visibility string) ([]models.TestCase, error) {
 	query := `
 		SELECT id, problem_id, visibility, input_data, expected_output, order_index
 		FROM test_cases
@@ -85,7 +85,7 @@ func (r *ProblemRepository) FindTestCasesByProblemID(ctx context.Context, proble
 
 	rows, err := r.pool.Query(ctx, query, problemID, visibility)
 	if err != nil {
-		return nil, fmt.Errorf("find test cases by problem id %d: %w", problemID, err)
+		return nil, fmt.Errorf("find test cases by problem id %s: %w", problemID, err)
 	}
 	defer rows.Close()
 
