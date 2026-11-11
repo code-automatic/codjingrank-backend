@@ -24,7 +24,8 @@ worker → Piston → verdict. No Asynq or AI rewrite.
   separate frontend repository is unavailable here.
 - Accepted progress/solution writes, crash recovery, full v1 Auth/profile/history
   and stats, leaderboard, Forum and isolated post-Accepted AI review.
-- Live Piston sandbox/resource/network validation and full-stack/frontend E2E.
+- Adversarial/load sandbox validation and frontend E2E. Task6 trusted real-Piston
+  backend smoke is now available; see evidence below.
 - Independent review did not complete because reviewer sessions disconnected;
   self-review and regression checks are not an external approval.
 
@@ -34,3 +35,14 @@ Repository/GitHub runtime integration, old curriculum routes, migrations/seeds
 and legacy test UI were removed. There is no legacy-data migration requirement:
 this product uses a fresh standalone database. Retained unmounted legacy source
 must not be mistaken for live endpoints.
+
+## Sprint 1 task6 — Docker/CI baseline
+
+Delivery configuration now bootstraps only empty PostgreSQL volumes, isolates
+Compose names/ports, pins Piston and fails CI visibly on lint errors. The first
+real full-stack smoke passed Accepted/Wrong Answer and ownership plus trusted
+Piston timeout/memory/network/output probes. Final reproducibility verification
+passed with automatic owned-resource cleanup; [deployment guide](be/DEPLOYMENT.md) lists commands and limits.
+GitHub CI is configured locally, not remotely executed. Runtime unit conversion
+(ms treated as seconds), per-problem output limits and production hardening
+remain separate follow-up work.

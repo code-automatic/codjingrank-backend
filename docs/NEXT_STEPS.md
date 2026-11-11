@@ -28,9 +28,12 @@ Baseline: [decisions](DECISIONS.md); current evidence:
 
 ## Release gates
 
-- Validate real Piston timeout, CPU/memory, network and output restrictions;
-  passing HTTP-double tests only proves request forwarding and judge handling.
-- Resolve Docker/CI audit findings, run full-stack E2E and frontend integration.
+- Extend task6 trusted real-Piston probes to adversarial/load tests and exact
+  per-problem CPU/output policy before production.
+- Review/execute the new backend CI remotely; local Docker smoke now exists.
+  Continue frontend E2E and concurrent-load/adversarial sandbox verification.
+- Fix Piston cpu_time milliseconds being converted as seconds; enforce
+  per-problem output limits (current Piston bound is global).
 - Finish provider/rubric/quota/retry choices before AI implementation.
 - Reserve 20–21/11 for regression/security/demo checks; 22/11 for submission.
 

@@ -1,0 +1,82 @@
+name: Backend baseline
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: innogen_ci
+          POSTGRES_USER: innogen
+          POSTGRES_PASSWORD: innogen
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U innogen -d innogen_ci"
+          --health-interval 5s --health-timeout 3s --health-retries 12
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 12
+    env:
+      CATALOG_TEST_DATABASE_URL: postgres://innogen:innogen@127.0.0.1:5432/innogen_ci?sslmode=disable
+      CATALOG_TEST_REDIS_ADDR: 127.0.0.1:6379
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Bootstrap disposable CI schema
+        run: psql "$CATALOG_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f schema.sql
+      - name: Go checks with database and Redis integration
+        run: |
+          make gofmt-check
+          go test -count=1 ./...
+          go vet ./...
+          go build ./...
+      - name: Schema bootstrap and constraint checks
+        env:
+          SCHEMA_TEST_CONTAINER: ${{ job.services.postgres.id }}
+          SCHEMA_TEST_USER: innogen
+        run: bash tests/schema/run.sh
+      - name: OpenAPI lint
+        run: make ci-openapi
+      - name: Production port boundary
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.prod.yml config --format json | python3 -c '
+          import json, sys
+          services = json.load(sys.stdin)["services"]
+          assert all(not s.get("ports") for n,s in services.items() if n != "api_gateway")
+          ports = services["api_gateway"]["ports"]
+          assert len(ports) == 1 and ports[0]["host_ip"] == "127.0.0.1"
+          '
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate and build retained services
+        run: |
+          docker compose config --quiet
+          make ci-docker
+  runtime-smoke:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trusted disposable real Piston smoke
+        run: make docker-smoke

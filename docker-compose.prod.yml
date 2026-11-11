@@ -3,23 +3,23 @@
 
 services:
   api_gateway:
-    ports:
+    ports: !override
       - "127.0.0.1:8080:8080"
 
   auth_service:
-    ports: []
+    ports: !reset []
 
   run_service:
-    ports: []
+    ports: !reset []
 
   submission_service:
-    ports: []
+    ports: !reset []
 
   postgres:
-    ports: []
+    ports: !reset []
 
   redis:
-    ports: []
+    ports: !reset []
 
   piston:
-    ports: []
+    ports: !reset []

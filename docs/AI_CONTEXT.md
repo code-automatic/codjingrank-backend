@@ -23,8 +23,10 @@ See [Sprint 2 acceptance](SPRINT2_ACCEPTANCE.md) for exact runtime scope.
 Run is synchronous sample execution via Piston. Submit persists Pending, uses
 Redis LPUSH/BRPOP, then worker/Piston/persisted verdict. No Asynq rewrite.
 Shared success/error envelopes and routing 404/405 handling are implemented;
-HEAD/204 are bodyless. Real PostgreSQL/Redis tests passed; Piston is an HTTP
-test double, not a validated live sandbox. Worker recovery is still pending.
+HEAD/204 are bodyless where endpoints select204 (root logout still uses200).
+Real PostgreSQL/Redis tests passed. Task6 now also has a trusted real-Piston
+Docker smoke; see [deployment evidence](be/DEPLOYMENT.md). It does not certify
+production sandbox security. Worker recovery is still pending.
 
 ## Target contracts for frontend mocks
 

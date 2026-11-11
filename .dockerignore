@@ -1,0 +1,12 @@
+.git
+.gitnexus
+.claude
+.agents
+.specify
+.env
+.env.*
+!.env.example
+outputs
+_site
+node_modules
+**/node_modules

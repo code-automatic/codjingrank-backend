@@ -39,8 +39,9 @@ make compose-up              # PostgreSQL, Redis and Piston infrastructure
 ```
 
 Config comes from environment variables in `shared/config/config.go`.
-Compose definitions exist for the retained services; starting them does not apply
-schema or complete schema integration. Judge behavior remains synchronous Run and
+Compose applies schema only to a fresh PostgreSQL volume. Existing volumes are
+never reset automatically; Piston runtimes require installation. See
+[Docker/CI baseline](docs/be/DEPLOYMENT.md) for `make docker-smoke` and limits. Judge behavior remains synchronous Run and
 Submit → Redis LPUSH/BRPOP → worker → Piston → persisted verdict.
 
 ## Database checks
