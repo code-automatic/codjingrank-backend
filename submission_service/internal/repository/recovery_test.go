@@ -49,7 +49,7 @@ func TestRecoveryFencesOldAttemptAndBoundsRetries(t *testing.T) {
 	if err = repo.UpdateSubmissionResult(ctx, sub.ID, newer, "Wrong Answer", nil, nil, nil, 0, 1); err == nil {
 		t.Fatal("final verdict mutable")
 	}
-	ids, err = repo.Recover(ctx, 0, 0, 3)
+	ids, err = repo.Recover(ctx, 0, time.Minute, 3)
 	if err != nil || slices.Contains(ids, sub.ID) {
 		t.Fatalf("terminal recovered: %v %v", ids, err)
 	}

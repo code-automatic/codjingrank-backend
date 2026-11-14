@@ -100,3 +100,47 @@ func TestConcurrentAcceptedAndTransactionalRollback(t *testing.T) {
 		t.Fatalf("partial solution committed: %d %v", count, e)
 	}
 }
+
+func TestConcurrentIdenticalAcceptedCountsOnce(t *testing.T) {
+	f := testutil.Catalog(t)
+	ctx := context.Background()
+	repo := New(f.Pool)
+	ids := []string{}
+	attempts := []int{}
+	for range 2 {
+		sub, err := repo.CreateSubmission(ctx, f.UserID, f.ProblemID, f.LanguageID, "print(3)")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = f.Pool.Exec(ctx, `UPDATE submissions SET created_at=now()-interval '11 seconds' WHERE id=$1`, sub.ID); err != nil {
+			t.Fatal(err)
+		}
+		attempt, err := repo.ClaimSubmission(ctx, sub.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ids = append(ids, sub.ID)
+		attempts = append(attempts, attempt)
+	}
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for i := range ids {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			<-start
+			if err := repo.UpdateSubmissionResult(ctx, ids[i], attempts[i], "Accepted", nil, nil, nil, 1, 1); err != nil {
+				t.Error(err)
+			}
+		}(i)
+	}
+	close(start)
+	wg.Wait()
+	var sources, count, verdicts int
+	if err := f.Pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM accepted_solutions WHERE user_id=$1),accepted_count,(SELECT count(*) FROM submissions WHERE user_id=$1 AND status='Accepted') FROM user_problem_progress WHERE user_id=$1 AND problem_id=$2`, f.UserID, f.ProblemID).Scan(&sources, &count, &verdicts); err != nil {
+		t.Fatal(err)
+	}
+	if sources != 1 || count != 1 || verdicts != 2 {
+		t.Fatalf("sources=%d progress=%d Accepted verdicts=%d", sources, count, verdicts)
+	}
+}
