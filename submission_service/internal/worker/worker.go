@@ -84,7 +84,7 @@ func (w *Worker) processOne(ctx context.Context) error {
 
 // processJob handles the full judging flow for a single submission.
 func (w *Worker) processJob(ctx context.Context, submissionID string) error {
-	ctx, cancel := context.WithTimeout(ctx, 90*time.Second)
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	// 1. Load submission
 	sub, err := w.repo.FindByID(ctx, submissionID)

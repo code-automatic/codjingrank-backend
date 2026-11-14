@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net"
-	"time"
 
 	"innogen-backend/run_service/internal/dto"
 	"innogen-backend/run_service/internal/repository"
@@ -37,8 +36,6 @@ func New(repo *repository.Repository, pistonClient *piston.Client) *RunService {
 
 // Run executes the user's code against all sample test cases for the given problem.
 func (s *RunService) Run(ctx context.Context, req dto.RunRequest) (*dto.RunResponse, error) {
-	ctx, cancel := context.WithTimeout(ctx, 90*time.Second)
-	defer cancel()
 	if _, msg := req.Validate(); msg != "" {
 		return nil, ErrInvalidInput
 	}
