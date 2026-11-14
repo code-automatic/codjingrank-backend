@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"innogen-backend/shared/catalog"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -208,20 +209,42 @@ func (r *SubmissionRepository) UpdateSubmissionStatus(ctx context.Context, id st
 
 // UpdateSubmissionResult updates the final result of a judged submission.
 func (r *SubmissionRepository) UpdateSubmissionResult(ctx context.Context, id string, attempt int, status string, runtimeMs *int, memoryKb *int, errorMessage *string, passCount int, totalTestcases int) error {
-	result, err := r.pool.Exec(ctx,
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	var uid, pid, lid, hash string
+	var judgedAt time.Time
+	err = tx.QueryRow(ctx,
 		`UPDATE submissions
          SET status = $2, runtime_ms = $3, memory_kb = $4, error_message = $5,
              pass_count = $6, total_testcases = $7, judged_at = CURRENT_TIMESTAMP
-         WHERE id = $1 AND status='Running' AND attempt_count=$8`,
+         WHERE id = $1 AND status='Running' AND attempt_count=$8
+         RETURNING user_id,problem_id,language_id,source_hash,judged_at`,
 		id, status, runtimeMs, memoryKb, errorMessage, passCount, totalTestcases, attempt,
-	)
+	).Scan(&uid, &pid, &lid, &hash, &judgedAt)
 	if err != nil {
 		return fmt.Errorf("repository.UpdateSubmissionResult: %w", err)
 	}
-	if result.RowsAffected() != 1 {
-		return errors.New("submission attempt no longer owns job")
+	if status == "Accepted" {
+		result, e := tx.Exec(ctx, `INSERT INTO accepted_solutions(submission_id,user_id,problem_id,language_id,source_hash,accepted_at) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(user_id,problem_id,language_id,source_hash) DO NOTHING`, id, uid, pid, lid, hash, judgedAt)
+		if e != nil {
+			return e
+		}
+		_, e = tx.Exec(ctx, `INSERT INTO user_problem_progress(user_id,problem_id,first_solved_at,last_solved_at,accepted_count,best_runtime_ms,best_memory_kb)
+ VALUES($1,$2,$3,$3,GREATEST($4::integer,1),$5,$6)
+ ON CONFLICT(user_id,problem_id) DO UPDATE SET
+ first_solved_at=LEAST(user_problem_progress.first_solved_at,EXCLUDED.first_solved_at),
+ last_solved_at=GREATEST(user_problem_progress.last_solved_at,EXCLUDED.last_solved_at),
+ accepted_count=user_problem_progress.accepted_count+$4::integer,
+ best_runtime_ms=LEAST(user_problem_progress.best_runtime_ms,EXCLUDED.best_runtime_ms),
+ best_memory_kb=LEAST(user_problem_progress.best_memory_kb,EXCLUDED.best_memory_kb)`, uid, pid, judgedAt, int(result.RowsAffected()), runtimeMs, memoryKb)
+		if e != nil {
+			return e
+		}
 	}
-	return nil
+	return tx.Commit(ctx)
 }
 
 // ClaimSubmission permits one worker to execute a Pending submission.
