@@ -48,6 +48,9 @@ type SubmissionListItem struct {
 	UserID         string  `json:"userId"`
 	ProblemID      string  `json:"problemId"`
 	LanguageID     string  `json:"languageId"`
+	ProblemSlug    string  `json:"problemSlug"`
+	ProblemTitle   string  `json:"problemTitle"`
+	LanguageSlug   string  `json:"languageSlug"`
 	Status         string  `json:"status"`
 	RuntimeMs      *int    `json:"runtimeMs"`
 	MemoryKb       *int    `json:"memoryKb"`
@@ -65,16 +68,19 @@ func ToSubmissionListItem(s *models.Submission) SubmissionListItem {
 		UserID:         s.UserID,
 		ProblemID:      s.ProblemID,
 		LanguageID:     s.LanguageID,
+		ProblemSlug:    s.ProblemSlug,
+		ProblemTitle:   s.ProblemTitle,
+		LanguageSlug:   s.LanguageSlug,
 		Status:         s.Status,
 		RuntimeMs:      s.RuntimeMs,
 		MemoryKb:       s.MemoryKb,
 		ErrorMessage:   s.ErrorMessage,
 		PassCount:      s.PassCount,
 		TotalTestcases: s.TotalTestcases,
-		CreatedAt:      s.CreatedAt.Format(time.RFC3339),
+		CreatedAt:      s.CreatedAt.UTC().Format(time.RFC3339),
 	}
 	if s.JudgedAt != nil {
-		js := s.JudgedAt.Format(time.RFC3339)
+		js := s.JudgedAt.UTC().Format(time.RFC3339)
 		item.JudgedAt = &js
 	}
 	return item
@@ -82,7 +88,15 @@ func ToSubmissionListItem(s *models.Submission) SubmissionListItem {
 
 // ListSubmissionsResponse wraps submission list for GET /me/submissions.
 type ListSubmissionsResponse struct {
-	Submissions []SubmissionListItem `json:"submissions"`
+	Items []SubmissionListItem `json:"items"`
+	Page  int                  `json:"page"`
+	Size  int                  `json:"size"`
+	Total int                  `json:"total"`
+}
+
+type HistoryQuery struct {
+	Page, Size                    int
+	ProblemID, LanguageID, Status string
 }
 
 // LatestSubmissionResponse wraps a submission for GET /me/submissions/{problemId}/latest.
@@ -112,9 +126,8 @@ type SolvedCount struct {
 }
 
 type Rank struct {
-	CurrentRank int `json:"currentRank"`
-	TotalUsers  int `json:"totalUsers"`
-	Rating      int `json:"rating"`
+	CurrentRank *int `json:"currentRank"`
+	TotalUsers  int  `json:"totalUsers"`
 }
 
 type Activity struct {

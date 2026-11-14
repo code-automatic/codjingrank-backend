@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"net"
 
 	"innogen-backend/run_service/internal/dto"
 	"innogen-backend/run_service/internal/repository"
@@ -15,9 +16,11 @@ import (
 
 // Sentinel errors for the service layer.
 var (
-	ErrInvalidInput     = errors.New("invalid input")
-	ErrProblemNotFound  = errors.New("problem not found")
-	ErrLanguageNotFound = errors.New("language not found")
+	ErrInvalidInput         = errors.New("invalid input")
+	ErrProblemNotFound      = errors.New("problem not found")
+	ErrLanguageNotFound     = errors.New("language not found")
+	ErrExecutionUnavailable = errors.New("code execution service unavailable")
+	ErrExecutionTimeout     = errors.New("code execution service timed out")
 )
 
 // RunService handles the code execution business logic.
@@ -108,15 +111,11 @@ func (s *RunService) Run(ctx context.Context, req dto.RunRequest) (*dto.RunRespo
 		// Call Piston
 		pistonResp, err := s.pistonClient.Execute(ctx, lang.PistonAlias, lang.PistonVersion, fileName, codeToRun, stdin, problem.TimeLimitMs, problem.MemoryLimitMb)
 		if err != nil {
-			internalError = true
-			msg := "Code execution service unavailable"
-			results = append(results, dto.TestResult{
-				TestCaseID:   tc.ID,
-				Status:       dto.StatusInternalError,
-				InputData:    inputData(tc),
-				ErrorMessage: &msg,
-			})
-			continue
+			var timeout net.Error
+			if errors.Is(err, context.DeadlineExceeded) || (errors.As(err, &timeout) && timeout.Timeout()) {
+				return nil, ErrExecutionTimeout
+			}
+			return nil, ErrExecutionUnavailable
 		}
 
 		// Prepare judge inputs
@@ -134,7 +133,7 @@ func (s *RunService) Run(ctx context.Context, req dto.RunRequest) (*dto.RunRespo
 			runStderr = pistonResp.Run.Stderr
 			runCode = pistonResp.Run.Code
 			runSignal = pistonResp.Run.Signal
-			runTime = pistonResp.Run.CPUTime
+			runTime = pistonResp.Run.CPUTime / 1000 // Piston reports milliseconds; judge accepts seconds.
 		}
 
 		// Judge the result

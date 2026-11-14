@@ -15,6 +15,7 @@ import (
 
 func TestSubmissionOwnerBoundary(t *testing.T) {
 	f := testutil.Catalog(t)
+	other := testutil.Catalog(t)
 	repo := repository.New(f.Pool)
 	sub, err := repo.CreateSubmission(context.Background(), f.UserID, f.ProblemID, f.LanguageID, "print(3)")
 	if err != nil {
@@ -27,7 +28,7 @@ func TestSubmissionOwnerBoundary(t *testing.T) {
 	for _, tc := range []struct {
 		uid  string
 		want int
-	}{{f.UserID, 200}, {"00000000-0000-0000-0000-000000000000", 404}} {
+	}{{f.UserID, 200}, {other.UserID, 404}} {
 		req := httptest.NewRequest("GET", "/submissions/"+sub.ID, nil)
 		req = req.WithContext(context.WithValue(req.Context(), middleware.UserIDKey, tc.uid))
 		rec := httptest.NewRecorder()

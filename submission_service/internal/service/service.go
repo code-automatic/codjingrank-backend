@@ -83,8 +83,8 @@ func (s *SubmissionService) ListByUserID(ctx context.Context, userID string) ([]
 }
 
 // GetLatestByUserAndProblem returns the most recent submission for a user+problem pair.
-func (s *SubmissionService) GetLatestByUserAndProblem(ctx context.Context, userID string, problemID string) (*models.Submission, error) {
-	sub, err := s.repo.FindLatestByUserAndProblem(ctx, userID, problemID)
+func (s *SubmissionService) GetLatestByUserAndProblem(ctx context.Context, userID string, problemID string, languageID string) (*models.Submission, error) {
+	sub, err := s.repo.FindLatestByUserAndProblem(ctx, userID, problemID, languageID)
 	if err != nil {
 		return nil, err
 	}
@@ -92,4 +92,8 @@ func (s *SubmissionService) GetLatestByUserAndProblem(ctx context.Context, userI
 		return nil, ErrNoSubmissionForProblem
 	}
 	return sub, nil
+}
+
+func (s *SubmissionService) History(ctx context.Context, uid string, q dto.HistoryQuery) (*dto.ListSubmissionsResponse, error) {
+	return s.repo.History(ctx, uid, q)
 }

@@ -48,6 +48,17 @@ jobs:
           go test -count=1 ./...
           go vet ./...
           go build ./...
+      - name: Redis recovery integration (isolated from parallel queue tests)
+        env:
+          RECOVERY_TEST_REDIS_ADDR: 127.0.0.1:6379
+        run: go test -count=1 ./submission_service/internal/worker -run TestRedisRecovery
+      - name: Validate actual submission responses against full and learner contracts
+        run: |
+          python3 -m pip install PyYAML==6.0.3 jsonschema==4.25.1
+          capture="$(mktemp)"
+          CATALOG_CONTRACT_CAPTURE="$capture" go test -count=1 ./submission_service/internal/handler ./run_service/internal/handler
+          python3 tests/sprint2_contracts.py "$capture"
+          python3 tests/sprint2_contracts.py "$capture" docs/openapi_fe.yaml
       - name: Schema bootstrap and constraint checks
         env:
           SCHEMA_TEST_CONTAINER: ${{ job.services.postgres.id }}

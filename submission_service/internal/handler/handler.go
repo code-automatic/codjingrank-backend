@@ -76,6 +76,10 @@ func (h *Handler) Submit(w http.ResponseWriter, r *http.Request) {
 
 // GetByID handles GET /submissions/{id}.
 func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
+	uid, admin, ok := h.reader(w, r)
+	if !ok {
+		return
+	}
 	id := r.PathValue("id")
 	if id == "" || !isValidUUID(id) {
 		response.ErrorSimple(w, http.StatusBadRequest, "Invalid submission ID")
@@ -93,8 +97,7 @@ func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	uid, ok := middleware.GetUserID(r)
-	if !ok || sub.UserID != uid {
+	if !admin && sub.UserID != uid {
 		response.ErrorSimple(w, 404, "Submission not found")
 		return
 	}
@@ -103,27 +106,30 @@ func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
 
 // ListMySubmissions handles GET /me/submissions.
 func (h *Handler) ListMySubmissions(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r)
+	userID, _, ok := h.reader(w, r)
 	if !ok {
-		response.ErrorSimple(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
-	items, err := h.svc.ListByUserID(r.Context(), userID)
+	query, field := historyQuery(r.URL.Query())
+	if field != "" {
+		response.ErrorValidation(w, "Invalid query parameter", field)
+		return
+	}
+	items, err := h.svc.History(r.Context(), userID, query)
 	if err != nil {
 		h.log.Error("list submissions failed", slog.String("error", err.Error()))
 		response.ErrorSimple(w, http.StatusInternalServerError, "Internal server error")
 		return
 	}
 
-	response.Success(w, http.StatusOK, dto.ListSubmissionsResponse{Submissions: items}, "User submissions retrieved successfully")
+	response.Success(w, http.StatusOK, items, "User submissions retrieved successfully")
 }
 
 // GetLatestForProblem handles GET /me/submissions/{problemId}/latest.
 func (h *Handler) GetLatestForProblem(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r)
+	userID, _, ok := h.reader(w, r)
 	if !ok {
-		response.ErrorSimple(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
@@ -134,10 +140,24 @@ func (h *Handler) GetLatestForProblem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sub, err := h.svc.GetLatestByUserAndProblem(r.Context(), userID, problemID)
+	languageID := r.URL.Query().Get("languageId")
+	if r.URL.Query().Has("languageId") && !middleware.ValidUUID(languageID) {
+		response.ErrorValidation(w, "Invalid language ID", "languageId")
+		return
+	}
+	sub, err := h.svc.GetLatestByUserAndProblem(r.Context(), userID, problemID, languageID)
 	if err != nil {
 		if errors.Is(err, service.ErrNoSubmissionForProblem) {
-			response.ErrorSimple(w, http.StatusNotFound, "No submission found for this problem")
+			visible, e := h.svc.VisibleProblem(r.Context(), userID, problemID)
+			if e != nil {
+				response.ErrorSimple(w, 500, "Internal server error")
+				return
+			}
+			if !visible {
+				response.ErrorSimple(w, 404, "Problem not found")
+				return
+			}
+			response.Success(w, 200, dto.LatestSubmissionResponse{}, "Latest submission retrieved successfully")
 			return
 		}
 		h.log.Error("get latest submission failed", slog.String("error", err.Error()))

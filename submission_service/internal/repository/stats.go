@@ -2,135 +2,76 @@ package repository
 
 import (
 	"context"
-	"time"
-
+	"github.com/jackc/pgx/v5"
 	"innogen-backend/submission_service/internal/dto"
+	"time"
 )
 
-// GetUserStats calculates dashboard statistics for a user.
-func (r *SubmissionRepository) GetUserStats(ctx context.Context, userID string) (*dto.UserStatsResponse, error) {
-	stats := &dto.UserStatsResponse{
-		Activity: []dto.Activity{},
-	}
-
-	// 1. Solved Count by difficulty (distinct accepted problems)
-	solvedQuery := `
-		SELECT p.difficulty, COUNT(DISTINCT s.problem_id)
-		FROM submissions s
-		JOIN problems p ON s.problem_id = p.id
-		WHERE s.user_id = $1 AND s.status = 'Accepted'
-		GROUP BY p.difficulty
-	`
-	rows, err := r.pool.Query(ctx, solvedQuery, userID)
+// GetUserStats reads one snapshot of progress/rank and Accepted activity, never AI scores.
+func (r *SubmissionRepository) GetUserStats(ctx context.Context, uid string) (*dto.UserStatsResponse, error) {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var difficulty string
-		var count int
-		if err := rows.Scan(&difficulty, &count); err != nil {
-			return nil, err
-		}
-		stats.SolvedCount.Total += count
-		switch difficulty {
-		case "Easy":
-			stats.SolvedCount.Easy = count
-		case "Medium":
-			stats.SolvedCount.Medium = count
-		case "Hard":
-			stats.SolvedCount.Hard = count
-		}
-	}
-
-	// 2. Activity (accepted submissions grouped by date)
-	activityQuery := `
-		SELECT DATE(created_at) as date, COUNT(*) as count
-		FROM submissions
-		WHERE user_id = $1 AND status = 'Accepted'
-		GROUP BY DATE(created_at)
-		ORDER BY date ASC
-	`
-	actRows, err := r.pool.Query(ctx, activityQuery, userID)
+	defer tx.Rollback(ctx)
+	stats := &dto.UserStatsResponse{Activity: []dto.Activity{}}
+	err = tx.QueryRow(ctx, `SELECT count(*),count(*) FILTER(WHERE l.difficulty='easy'),count(*) FILTER(WHERE l.difficulty='medium'),count(*) FILTER(WHERE l.difficulty='hard') FROM user_problem_progress upp JOIN problems p ON p.id=upp.problem_id JOIN levels l ON l.id=p.level_id WHERE upp.user_id=$1`, uid).Scan(&stats.SolvedCount.Total, &stats.SolvedCount.Easy, &stats.SolvedCount.Medium, &stats.SolvedCount.Hard)
 	if err != nil {
 		return nil, err
 	}
-	defer actRows.Close()
-
+	rows, err := tx.Query(ctx, `SELECT (COALESCE(judged_at,created_at) AT TIME ZONE 'UTC')::date,count(*) FROM submissions WHERE user_id=$1 AND status='Accepted' GROUP BY 1 ORDER BY 1`, uid)
+	if err != nil {
+		return nil, err
+	}
 	var dates []time.Time
-	for actRows.Next() {
+	for rows.Next() {
 		var d time.Time
-		var c int
-		if err := actRows.Scan(&d, &c); err != nil {
+		var count int
+		if err = rows.Scan(&d, &count); err != nil {
+			rows.Close()
 			return nil, err
 		}
 		dates = append(dates, d)
-		stats.Activity = append(stats.Activity, dto.Activity{
-			Date:  d.Format("2006-01-02"),
-			Count: c,
-		})
+		stats.Activity = append(stats.Activity, dto.Activity{Date: d.Format("2006-01-02"), Count: count})
 	}
-
-	// 3. Streak Calculation
-	currentStreak := 0
-	maxStreak := 0
-
-	if len(dates) > 0 {
-		lastDate := dates[len(dates)-1].Format("2006-01-02")
-		stats.Streak.LastActiveDate = &lastDate
-
-		curr := 1
-		maxStreak = 1
-		for i := 1; i < len(dates); i++ {
-			diff := int(dates[i].Sub(dates[i-1]).Hours() / 24)
-			if diff == 1 {
-				curr++
-			} else if diff > 1 {
-				curr = 1
-			}
-			if curr > maxStreak {
-				maxStreak = curr
-			}
-		}
-
-		// If the last active date is today or yesterday, they have an active streak
-		today := time.Now().Truncate(24 * time.Hour)
-		daysSinceLastActive := int(today.Sub(dates[len(dates)-1]).Hours() / 24)
-		if daysSinceLastActive <= 1 {
-			currentStreak = curr
-		} else {
-			currentStreak = 0
-		}
-	}
-	stats.Streak.CurrentStreak = currentStreak
-	stats.Streak.MaxStreak = maxStreak
-
-	// 4. Rank (MVP: Rank based on total distinct problems solved compared to others)
-	// We count users who have more distinct accepted problems than this user.
-	// Total users simply counts distinct user_ids in submissions table.
-	rankQuery := `
-		WITH UserSolvedCounts AS (
-			SELECT user_id, COUNT(DISTINCT problem_id) as solved_count
-			FROM submissions
-			WHERE status = 'Accepted'
-			GROUP BY user_id
-		)
-		SELECT 
-			(SELECT COUNT(*) + 1 FROM UserSolvedCounts WHERE solved_count > $1) as current_rank,
-			(SELECT COUNT(DISTINCT id) FROM users) as total_users
-	`
-	var currentRank, totalUsers int
-	if err := r.pool.QueryRow(ctx, rankQuery, stats.SolvedCount.Total).Scan(&currentRank, &totalUsers); err != nil {
-		// totalUsers might fail if we query the users table?
-		// Wait, submission_service has access to users table (shared database).
-		// Let's handle it safely.
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
 		return nil, err
 	}
-
-	stats.Rank.CurrentRank = currentRank
-	stats.Rank.TotalUsers = totalUsers
-	stats.Rank.Rating = 1200 + (stats.SolvedCount.Total * 10) // Simple MVP rating
-
+	stats.Streak = utcStreak(dates, time.Now())
+	err = tx.QueryRow(ctx, `SELECT (SELECT rank::integer FROM leaderboard WHERE user_id=$1),(SELECT count(*) FROM users WHERE is_active)`, uid).Scan(&stats.Rank.CurrentRank, &stats.Rank.TotalUsers)
+	if err != nil {
+		return nil, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return nil, err
+	}
 	return stats, nil
+}
+
+func utcStreak(dates []time.Time, now time.Time) dto.Streak {
+	result := dto.Streak{}
+	if len(dates) == 0 {
+		return result
+	}
+	last := dates[len(dates)-1].Format("2006-01-02")
+	result.LastActiveDate = &last
+	current := 1
+	result.MaxStreak = 1
+	for i := 1; i < len(dates); i++ {
+		if dates[i].Sub(dates[i-1]) == 24*time.Hour {
+			current++
+		} else {
+			current = 1
+		}
+		if current > result.MaxStreak {
+			result.MaxStreak = current
+		}
+	}
+	age := now.UTC().Truncate(24 * time.Hour).Sub(dates[len(dates)-1])
+	if age >= 0 && age <= 24*time.Hour {
+		result.CurrentStreak = current
+	}
+	return result
 }

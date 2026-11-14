@@ -158,18 +158,19 @@ These are contract-level design choices made to complete mock coverage on 07/11/
 
 ## Compatibility and implementation gates
 
-This standalone product has no old database to migrate. The clean UUID schema and Sprint 2 Auth/catalog/execution consumers are integrated locally. Remaining history/stats/profile consumers still need adaptation. Legacy integer JWTs are rejected; root Auth/Run/Submit now use UUIDs. Do not enable a prefix-only alias and pretend it is compatible: either update both equivalent root/v1 handlers to the same UUID contract with tests before rollout, or publish an explicit compatibility adapter/deprecation plan. Removed curriculum/GitHub routes are never restored as aliases.
+This standalone product has no old database to migrate. UUID Auth/catalog/execution and Sprint 3 submission history/latest/stats consumers are integrated. Full v1 Auth/profile still needs implementation. Legacy integer JWTs are rejected. Root/v1 Run, Submit and submission reads share their tested target payloads; removed curriculum/GitHub routes are never restored as aliases. See [Sprint 3 acceptance](SPRINT3_ACCEPTANCE.md).
 
 Gateway strips `/api/v1` only when the corresponding upstream understands the target payload. The pending `GET /users/me` integration is intended to rewrite to Auth `/auth/me`; other mappings follow the OpenAPI `x-owner`. Cookie Path=/ must cover root/v1 refresh/logout during compatibility; remove old Path=/auth cookie, preserve all Set-Cookie headers, validate Origin against the configured allowlist and use SameSite according to deployment. Cross-site cookie deployment requires a CSRF design before enablement. Internal Auth lookup and AI job delivery are not browser endpoints and are intentionally absent from public OpenAPI.
 
-### Compatibility checklist (updated 11/11/2026)
+### Compatibility checklist (updated 14/11/2026)
 
 | Earlier root behavior / remaining gap | Target v1 | Current status / integration requirement |
 |---|---|---|
-| Integer user/problem/language IDs | UUID strings everywhere | Auth/JWT/catalog/Run/Submit integrated; remaining consumers and frontend types still require alignment |
+| Integer user/problem/language IDs | UUID strings everywhere | Auth/JWT/catalog/Run/Submit/history/stats integrated; full profile/Auth and frontend types still require alignment |
 | Logout200 envelope | Logout204 bodyless/idempotent | Root logout remains200; bodyless204 and target v1 Auth route remain pending |
-| History data.submissions without page contract | data.items/page/size/total | Add stable pagination and update clients; never silently return different root/v1 payloads |
-| Legacy stats rank.rating | Target progress/rank without rating | Remove rating assumptions; AI score is separate |
+| History data.submissions without page contract | data.items/page/size/total | Implemented at root/v1; clients must read items, support pagination and omit list-source assumptions |
+| Latest absence404 | 200 data.submission=null | Implemented at root/v1; do not use404 as the empty-state signal |
+| Legacy stats rank.rating | Target progress/rank without rating | Implemented at root/v1; remove rating assumptions; currentRank is nullable and AI score stays separate |
 | Root public problem detail | Target catalog requires Bearer/level checks | Implemented v1 authentication/level checks; root problem family retired410 |
 | Root problem test-cases (sample projection) | `/problems/{slug}/samples` | Implemented slug route; root family retired410; hidden tests admin-only |
 | Six-character current registration | Target8+ with letter/digit | Validation change needs contract/regression tests |

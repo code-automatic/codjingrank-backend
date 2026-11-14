@@ -55,10 +55,10 @@ func TestRunHidesProviderDiagnostics(t *testing.T) {
 	defer engine.Close()
 	svc := New(repository.New(f.Pool), piston.NewClient(engine.URL))
 	result, err := svc.Run(ctx, dto.RunRequest{ProblemID: f.ProblemID, LanguageID: f.LanguageID, Code: "print(3)"})
-	if err != nil {
-		t.Fatal(err)
+	if err != ErrExecutionUnavailable || result != nil {
+		t.Fatalf("unsafe provider failure: %+v %v", result, err)
 	}
-	raw, _ := json.Marshal(result)
+	raw, _ := json.Marshal(err.Error())
 	if strings.Contains(string(raw), "PRIVATE PROVIDER KEY") {
 		t.Fatalf("provider leaked: %s", raw)
 	}

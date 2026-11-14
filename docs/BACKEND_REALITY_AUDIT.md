@@ -1,10 +1,18 @@
 # Backend Reality Audit
 
-> **Cleanup 06/11/2026:** Repository/GitHub and Subject/Session/Lesson code,
-> old migrations/seeds and the Vite test UI have been removed on
-> `chore/remove-legacy-code`. Any inventory of those implementations below is
-> historical. Retained Go persistence/DTOs still require UUID/schema integration;
-> `/api/v1`, Forum and AI remain target-only. See [project state](../PROJECT_STATE.md).
+> **Current baseline 14/11/2026:** Repository/GitHub, the old hierarchy and old
+> migrations are removed. UUID catalog/admin/Run/Submit are integrated. Sprint 3
+> adds root/v1 submission detail/history/latest/stats, active owner/admin reads,
+> bounded worker recovery with attempt fencing, and transactional Accepted
+> solutions/progress. Trusted real-Piston lost-enqueue smoke passed. Full v1
+> Auth/profile, Forum, AI and leaderboard APIs remain pending. See
+> [Sprint 3 acceptance](SPRINT3_ACCEPTANCE.md) and [project state](../PROJECT_STATE.md).
+
+## Historical SRS audit — 05/11/2026
+
+The inventory below is the original audit snapshot. Its references to Repo,
+integer IDs, legacy stats/rating and missing target-schema tables are historical,
+not current runtime claims. Current evidence above supersedes those statements.
 
 
 **Đối chiếu:** backend trong repository này với SRS mới tại `code-automatic/srs` (commit `a46397729ca56e74bf6dabf057c6ce82f102b66b`, 2026-11-05). Đây là snapshot phân tích; chưa phải cam kết rằng mọi chức năng trong SRS đã được triển khai.

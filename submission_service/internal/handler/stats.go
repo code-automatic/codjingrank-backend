@@ -3,15 +3,13 @@ package handler
 import (
 	"net/http"
 
-	"innogen-backend/shared/middleware"
 	"innogen-backend/shared/response"
 )
 
 // GetStats handles GET /me/stats.
 func (h *Handler) GetStats(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r)
+	userID, _, ok := h.reader(w, r)
 	if !ok {
-		response.ErrorSimple(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 

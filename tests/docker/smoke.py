@@ -119,6 +119,9 @@ def main():
             pid = problem['problem']['id']
             code = 'import sys\nprint(sum(map(int, sys.stdin.read().split())))'
             payload = {'problemId': pid, 'languageId': language, 'code': code}
+            assert request(gateway, f'/api/v1/me/submissions/{pid}/latest', token=token)['data']['submission'] is None
+            assert request(gateway, '/api/v1/me/submissions', token=token)['data']['items'] == []
+            assert request(gateway, '/api/v1/me/stats', token=token)['data']['rank']['currentRank'] is None
             result = request(gateway, '/api/v1/run', payload, token)['data']
             assert result['status'] == 'Accepted' and result['total'] == 1, result
             assert sql('SELECT count(*) FROM submissions;') == '0', 'Run persisted a submission'
@@ -129,17 +132,33 @@ def main():
             assert submitted['status'] == 'Pending', submitted
             assert redis('TYPE', 'submission_jobs') == 'list'
             assert sid in redis('LRANGE', 'submission_jobs', '0', '-1')
+            pending = request(gateway, '/api/v1/submissions/' + sid, token=token)['data']['submission']
+            assert pending['status'] == 'Pending'
+            assert pending == request(gateway, '/submissions/' + sid, token=token)['data']['submission']
+            request(gateway, '/api/v1/submit', payload, token, expected=429)
+            # Prove periodic recovery of a durable row whose enqueue was lost.
+            redis('DEL', 'submission_jobs')
             run('start', 'submission_worker')
             deadline = time.monotonic() + 45
             while time.monotonic() < deadline:
-                final = request(gateway, '/submissions/' + sid, token=token)['data']['submission']
+                final = request(gateway, '/api/v1/submissions/' + sid, token=token)['data']['submission']
                 if final['status'] not in ['Pending', 'Running']:
                     break
-                time.sleep(0.25)
+                time.sleep(1)
             assert final['status'] == 'Accepted' and final['passCount'] == 2, final
             assert sql(f"SELECT status FROM submissions WHERE id='{sid}';") == 'Accepted'
+            history = request(gateway, '/api/v1/me/submissions?page=1&size=1&status=Accepted', token=token)['data']
+            assert history['total'] == 1 and history['items'][0]['id'] == sid and 'code' not in history['items'][0]
+            assert history == request(gateway, '/me/submissions?page=1&size=1&status=Accepted', token=token)['data']
+            assert request(gateway, f'/api/v1/me/submissions/{pid}/latest?languageId={language}', token=token)['data']['submission']['id'] == sid
+            stats = request(gateway, '/api/v1/me/stats', token=token)['data']
+            assert stats['solvedCount']['total'] == 1 and stats['rank']['currentRank'] == 1 and 'rating' not in stats['rank']
+            assert stats == request(gateway, '/me/stats', token=token)['data']
+            assert sql(f"SELECT accepted_count FROM user_problem_progress WHERE user_id='{uid}';") == '1'
+            assert sql(f"SELECT count(*) FROM accepted_solutions WHERE user_id='{uid}';") == '1'
+            assert sql('SELECT count(*) FROM ai_reviews;') == '0'
             other = request(gateway, '/auth/register', {**user, 'email': 'other@example.org', 'username': 'other'}, expected=201)
-            request(gateway, '/submissions/' + sid, token=other['data']['accessToken'], expected=404)
+            request(gateway, '/api/v1/submissions/' + sid, token=other['data']['accessToken'], expected=404)
             wrong_token = other['data']['accessToken']
             wrong = request(gateway, '/api/v1/submit', {**payload, 'code': 'print(0)'}, wrong_token, expected=201)['data']['submission']
             deadline = time.monotonic() + 45
@@ -149,7 +168,7 @@ def main():
                     break
                 time.sleep(0.25)
             assert wrong_final['status'] == 'Wrong Answer', wrong_final
-            print('Gateway auth/refresh/catalog, sample Run, Pending -> Redis list -> worker -> Piston -> persisted Accepted: passed', flush=True)
+            print('Gateway Run, lost-enqueue recovery, owner polling, history/latest/stats, atomic Accepted progress and anti-spam: passed', flush=True)
 
             # These trusted probes verify effective limits of this Piston image.
             def execute(source, timeout=1000):

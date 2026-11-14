@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"innogen-backend/shared/catalog"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -127,16 +128,16 @@ func (r *SubmissionRepository) FindByUserID(ctx context.Context, userID string) 
 
 // FindLatestByUserAndProblem returns the most recent submission for a user+problem pair.
 // Returns nil, nil if none found.
-func (r *SubmissionRepository) FindLatestByUserAndProblem(ctx context.Context, userID string, problemID string) (*models.Submission, error) {
+func (r *SubmissionRepository) FindLatestByUserAndProblem(ctx context.Context, userID string, problemID string, languageID string) (*models.Submission, error) {
 	s := &models.Submission{}
 	err := r.pool.QueryRow(ctx,
 		`SELECT s.id, s.user_id, s.problem_id, s.language_id, s.source_code, s.status, s.runtime_ms, s.memory_kb, s.error_message, s.pass_count, s.total_testcases,
 			s.created_at, s.judged_at
 		FROM submissions s
-		WHERE s.user_id = $1 AND s.problem_id = $2
-		ORDER BY s.created_at DESC
+		WHERE s.user_id = $1 AND s.problem_id = $2 AND (NULLIF($3,'')::uuid IS NULL OR s.language_id=NULLIF($3,'')::uuid)
+		ORDER BY s.created_at DESC,s.id DESC
 		LIMIT 1`,
-		userID, problemID,
+		userID, problemID, languageID,
 	).Scan(
 		&s.ID, &s.UserID, &s.ProblemID, &s.LanguageID, &s.Code,
 		&s.Status, &s.RuntimeMs, &s.MemoryKb, &s.ErrorMessage,
@@ -207,26 +208,60 @@ func (r *SubmissionRepository) UpdateSubmissionStatus(ctx context.Context, id st
 }
 
 // UpdateSubmissionResult updates the final result of a judged submission.
-func (r *SubmissionRepository) UpdateSubmissionResult(ctx context.Context, id string, status string, runtimeMs *int, memoryKb *int, errorMessage *string, passCount int, totalTestcases int) error {
-	_, err := r.pool.Exec(ctx,
+func (r *SubmissionRepository) UpdateSubmissionResult(ctx context.Context, id string, attempt int, status string, runtimeMs *int, memoryKb *int, errorMessage *string, passCount int, totalTestcases int) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	var uid, pid, lid, hash string
+	var judgedAt time.Time
+	err = tx.QueryRow(ctx,
 		`UPDATE submissions
          SET status = $2, runtime_ms = $3, memory_kb = $4, error_message = $5,
              pass_count = $6, total_testcases = $7, judged_at = CURRENT_TIMESTAMP
-         WHERE id = $1`,
-		id, status, runtimeMs, memoryKb, errorMessage, passCount, totalTestcases,
-	)
+         WHERE id = $1 AND status='Running' AND attempt_count=$8
+         RETURNING user_id,problem_id,language_id,source_hash,judged_at`,
+		id, status, runtimeMs, memoryKb, errorMessage, passCount, totalTestcases, attempt,
+	).Scan(&uid, &pid, &lid, &hash, &judgedAt)
 	if err != nil {
 		return fmt.Errorf("repository.UpdateSubmissionResult: %w", err)
 	}
-	return nil
+	if status == "Accepted" {
+		result, e := tx.Exec(ctx, `INSERT INTO accepted_solutions(submission_id,user_id,problem_id,language_id,source_hash,accepted_at) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(user_id,problem_id,language_id,source_hash) DO NOTHING`, id, uid, pid, lid, hash, judgedAt)
+		if e != nil {
+			return e
+		}
+		_, e = tx.Exec(ctx, `INSERT INTO user_problem_progress(user_id,problem_id,first_solved_at,last_solved_at,accepted_count,best_runtime_ms,best_memory_kb)
+ VALUES($1,$2,$3,$3,GREATEST($4::integer,1),$5,$6)
+ ON CONFLICT(user_id,problem_id) DO UPDATE SET
+ first_solved_at=LEAST(user_problem_progress.first_solved_at,EXCLUDED.first_solved_at),
+ last_solved_at=GREATEST(user_problem_progress.last_solved_at,EXCLUDED.last_solved_at),
+ accepted_count=user_problem_progress.accepted_count+$4::integer,
+ best_runtime_ms=LEAST(user_problem_progress.best_runtime_ms,EXCLUDED.best_runtime_ms),
+ best_memory_kb=LEAST(user_problem_progress.best_memory_kb,EXCLUDED.best_memory_kb)`, uid, pid, judgedAt, int(result.RowsAffected()), runtimeMs, memoryKb)
+		if e != nil {
+			return e
+		}
+	}
+	return tx.Commit(ctx)
 }
 
 // ClaimSubmission permits one worker to execute a Pending submission.
-func (r *SubmissionRepository) ClaimSubmission(ctx context.Context, id string) (bool, error) {
-	result, err := r.pool.Exec(ctx, `UPDATE submissions SET status='Running',claimed_at=now(),attempt_count=attempt_count+1 WHERE id=$1 AND status='Pending'`, id)
-	return result.RowsAffected() == 1, err
+func (r *SubmissionRepository) ClaimSubmission(ctx context.Context, id string) (int, error) {
+	var attempt int
+	err := r.pool.QueryRow(ctx, `UPDATE submissions SET status='Running',claimed_at=now(),attempt_count=attempt_count+1 WHERE id=$1 AND status='Pending' RETURNING attempt_count`, id).Scan(&attempt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, nil
+	}
+	return attempt, err
 }
 
 func (r *SubmissionRepository) EnrichSubmission(ctx context.Context, s *models.Submission) error {
+	s.CreatedAt = s.CreatedAt.UTC()
+	if s.JudgedAt != nil {
+		utc := s.JudgedAt.UTC()
+		s.JudgedAt = &utc
+	}
 	return r.pool.QueryRow(ctx, `SELECT p.slug,p.title,l.slug FROM problems p CROSS JOIN languages l WHERE p.id=$1 AND l.id=$2`, s.ProblemID, s.LanguageID).Scan(&s.ProblemSlug, &s.ProblemTitle, &s.LanguageSlug)
 }

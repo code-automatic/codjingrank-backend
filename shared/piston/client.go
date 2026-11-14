@@ -102,18 +102,35 @@ func (c *Client) Execute(ctx context.Context, language, version, fileName, code,
 	}
 	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(resp.Body)
+	const maxResponseBytes = 4 * 1024 * 1024
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes+1))
 	if err != nil {
 		return nil, fmt.Errorf("piston: failed to read response: %w", err)
 	}
+	if len(respBody) > maxResponseBytes {
+		return nil, fmt.Errorf("piston: response exceeds size limit")
+	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("piston: unexpected status %d: %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("piston: unexpected status %d", resp.StatusCode)
 	}
 
 	var result Response
 	if err := json.Unmarshal(respBody, &result); err != nil {
 		return nil, fmt.Errorf("piston: failed to decode response: %w", err)
+	}
+	type stageStatus struct {
+		Code *int `json:"code"`
+	}
+	var stages struct{ Run, Compile *stageStatus }
+	if err = json.Unmarshal(respBody, &stages); err != nil {
+		return nil, fmt.Errorf("piston: invalid execution response")
+	}
+	if (stages.Run != nil && stages.Run.Code == nil) || (stages.Compile != nil && stages.Compile.Code == nil) || (result.Run == nil && (result.Compile == nil || result.Compile.Code == 0)) {
+		return nil, fmt.Errorf("piston: missing execution result")
+	}
+	if result.Compile != nil && result.Compile.Code != 0 && result.Compile.Stderr == "" {
+		result.Compile.Stderr = "Compilation error"
 	}
 
 	return &result, nil
