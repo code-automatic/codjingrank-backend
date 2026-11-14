@@ -4,6 +4,10 @@ Updated 14/11/2026. Scope: workbook BE tasks **16, 18, 19, 20, 21**, assigned to
 Trung Hiếu. FE17/22 belong to the separate frontend repository; QA23 remains
 the assigned QA task. This report does not mark those tasks complete.
 
+Delivery: [integration PR9](https://github.com/code-automatic/codjingrank-backend/pull/9).
+The PR records merge status and checks for the final head. Backend verification
+does not imply a production deployment.
+
 ## Evidence by task
 
 | Task | Delivered behavior | Implementation evidence |

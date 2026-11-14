@@ -4,10 +4,11 @@ Updated: 2026-11-14. Delivery deadline: 22/11/2026.
 Baseline: [decisions](DECISIONS.md); current evidence:
 [Sprint 3 BE acceptance](SPRINT3_ACCEPTANCE.md).
 
-## Complete Sprint 3 integration
+## Sprint 3 handoff
 
-- Publish the scoped BE task16/18/19/20/21 commits, run required PR checks and
-  merge with a merge commit preserving every original SHA.
+- Delivery and check status for BE task16/18/19/20/21 are recorded in
+  [PR9](https://github.com/code-automatic/codjingrank-backend/pull/9).
+  Preserve original commit SHAs with a merge commit.
 - FE17/22 and QA23 remain separately assigned. The backend report does not
   certify frontend integration or the team's QA acceptance.
 - FE should use the learner OpenAPI implementation flags and runtime matrix;

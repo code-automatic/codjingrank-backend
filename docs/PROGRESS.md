@@ -2,7 +2,8 @@
 
 Updated: 2026-11-14. Sprint 2 and Sprint 1 task6 merged through PR7/8 at
 `0a7afa5`. Sprint 3 backend is implemented on `test/sprint3-acceptance`;
-publication status and actual checks belong in its acceptance report.
+publication status and actual checks belong in its acceptance report and
+[PR9](https://github.com/code-automatic/codjingrank-backend/pull/9).
 
 ## Sprint 2 backend
 
