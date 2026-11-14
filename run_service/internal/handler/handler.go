@@ -38,6 +38,10 @@ func (h *Handler) Run(w http.ResponseWriter, r *http.Request) {
 	resp, err := h.svc.Run(r.Context(), req)
 	if err != nil {
 		switch {
+		case errors.Is(err, service.ErrExecutionTimeout):
+			response.ErrorSimple(w, 504, "Code execution service timed out")
+		case errors.Is(err, service.ErrExecutionUnavailable):
+			response.ErrorSimple(w, 502, "Code execution service unavailable")
 		case errors.Is(err, catalog.ErrProblemNotFound):
 			response.ErrorSimple(w, 404, "Problem not found")
 		case errors.Is(err, catalog.ErrLevelLocked):
