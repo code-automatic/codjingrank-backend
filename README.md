@@ -14,12 +14,13 @@ and [frontend contract](docs/FRONTEND_API_CONTRACT.md).
 - `schema.sql`: clean shared PostgreSQL 16 bootstrap for Package → Level → Problem.
 - `tests/schema/`: bootstrap and constraint checks.
 
-**Sprint 2 backend implemented locally:** UUID Auth/JWT/refresh persistence,
-`/api/v1` learner catalog and admin catalog CRUD/publication, shared level-access
-checks for Run/Submit, UUID judge consumers and owner-only submission detail.
-See [Sprint 2 acceptance](docs/SPRINT2_ACCEPTANCE.md) for tested scope and remaining
-gaps. Full target Auth/profile/history, worker recovery, progress writes, Forum,
-AI and leaderboard remain pending. This is not a production release.
+**Backend through Sprint 3 implemented:** UUID Auth/refresh, v1 learner/admin
+catalog, Run/Submit access checks, owner/active-admin submission detail,
+filtered history/latest/UTC stats, worker recovery and transactional Accepted
+progress/unlock. See [Sprint 2](docs/SPRINT2_ACCEPTANCE.md) and
+[Sprint 3 acceptance](docs/SPRINT3_ACCEPTANCE.md) for evidence and compatibility.
+Full target v1 Auth/profile, Forum, AI and leaderboard endpoints remain pending.
+This is not a production release.
 
 Repository/GitHub integration, Subject/Session/Lesson endpoints, old migrations,
 old seeds and the legacy Vite test UI have been removed. No replacement AI call
@@ -63,7 +64,7 @@ Use [learner OpenAPI](docs/openapi_fe.yaml) for learner screens and
 [full Gateway/admin OpenAPI](docs/openapi.yaml) for admin screens. The
 [frontend contract](docs/FRONTEND_API_CONTRACT.md) covers F01–F13, permissions,
 examples and schema-integration gaps. These are target `/api/v1` contracts;
-runtime availability is listed in the Sprint 2 acceptance report. Unimplemented
+runtime availability is listed in the Sprint 3 acceptance report. Unimplemented
 operations still require Prism.
 
 ```bash

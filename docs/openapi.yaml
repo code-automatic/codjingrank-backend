@@ -1128,7 +1128,7 @@ paths:
         No hidden test is sent or returned.'
       security:
       - bearerAuth: []
-      x-implementation-status: partial-integration-tested
+      x-implementation-status: integration-tested
       x-owner: run_service
       x-feature: F06
       x-priority: Must
@@ -1271,7 +1271,7 @@ paths:
         output or diagnostics.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: integration-tested
       x-owner: submission_service
       x-feature: F07
       x-priority: Must
@@ -1417,7 +1417,7 @@ paths:
         items=[],total=0.'
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: integration-tested
       x-owner: submission_service
       x-feature: F09
       x-priority: Must
@@ -1577,7 +1577,7 @@ paths:
         Unknown/inaccessible problem returns 404.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: integration-tested
       x-owner: submission_service
       x-feature: F09
       x-priority: Must
@@ -1654,7 +1654,7 @@ paths:
         progress.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: integration-tested
       x-owner: submission_service
       x-feature: F09
       x-priority: Must

@@ -1,40 +1,40 @@
 # Next Steps — v2.0
 
-Updated: 2026-11-11. Delivery deadline: 22/11/2026.
+Updated: 2026-11-14. Delivery deadline: 22/11/2026.
 Baseline: [decisions](DECISIONS.md); current evidence:
-[Sprint 2 acceptance](SPRINT2_ACCEPTANCE.md).
+[Sprint 3 BE acceptance](SPRINT3_ACCEPTANCE.md).
 
-## Finish Sprint 2 integration
+## Complete Sprint 3 integration
 
-- Review the local stacked feature commits before opening PRs. Preserve original
-  commits with merge commits; do not mark local changes deployed.
-- FE tasks11/12/14 remain in the separate frontend repository. Use the learner
-  OpenAPI and runtime matrix; keep unimplemented endpoints on mocks.
-- Root Auth issues UUID tokens, but the full target v1 Auth/profile contract is
-  pending. Implement it explicitly rather than adding an untested prefix alias.
+- Publish the scoped BE task16/18/19/20/21 commits, run required PR checks and
+  merge with a merge commit preserving every original SHA.
+- FE17/22 and QA23 remain separately assigned. The backend report does not
+  certify frontend integration or the team's QA acceptance.
+- FE should use the learner OpenAPI implementation flags and runtime matrix;
+  retain mocks for target-only operations.
 
 ## Next backend work
 
-1. Persist Accepted solutions/progress transactionally and idempotently, then
-   prove level unlock from actual worker results. Current progress tests seed
-   progress rows; they do not prove this missing write path.
-2. Add worker crash recovery/retry strategy; duplicate final jobs are guarded,
-   but Running jobs can remain stuck after a crash.
-3. Complete v1 submission detail/history/stats and owner/admin read policy.
-   The root stats query still needs UUID-schema integration.
-4. Implement leaderboard from distinct solved problems/Accepted solutions;
-   isolate AI review after persisted Accepted. AI errors never change verdict.
-5. Implement Forum/moderation and remaining target routes with contract tests.
+1. Complete the full target v1 Auth/profile contract. Root UUID Auth/refresh
+   already works; do not assume every target operation has a v1 alias.
+2. Implement leaderboard endpoints from distinct solved problems/Accepted
+   sources, excluding AI score.
+3. Finalize provider/rubric/quota/retry choices before implementing isolated
+   AI review after persisted Accepted. AI failure must never change verdict.
+4. Implement Forum/moderation and remaining target routes with contract tests.
+
+Accepted progress/unlock, worker recovery, ownership and v1 submission
+history/latest/stats are implemented; see the acceptance report for tests,
+compatibility changes and recovery guarantees.
 
 ## Release gates
 
-- Extend task6 trusted real-Piston probes to adversarial/load tests and exact
-  per-problem CPU/output policy before production.
-- Review/execute the new backend CI remotely; local Docker smoke now exists.
-  Continue frontend E2E and concurrent-load/adversarial sandbox verification.
-- Fix Piston cpu_time milliseconds being converted as seconds; enforce
-  per-problem output limits (current Piston bound is global).
-- Finish provider/rubric/quota/retry choices before AI implementation.
+- Exact per-problem CPU/output policy and adversarial/load sandbox validation
+  remain open. Piston's global output bound is not per-problem enforcement.
+- Backend CI and trusted real-Piston smoke already ran remotely for task6;
+  rerun on Sprint 3's merged revision and publish the actual run link.
+- Complete frontend E2E and team QA; trusted backend probes alone do not certify
+  hostile multi-tenant production isolation.
 - Reserve 20–21/11 for regression/security/demo checks; 22/11 for submission.
 
 Use only dedicated project test infrastructure. `schema.sql` is destructive

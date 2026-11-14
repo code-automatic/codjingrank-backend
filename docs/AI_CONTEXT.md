@@ -1,6 +1,6 @@
 # Backend AI Context
 
-Updated 2026-11-11. See [PROJECT_STATE](../PROJECT_STATE.md) for tested revision
+Updated 2026-11-14. See [PROJECT_STATE](../PROJECT_STATE.md) for tested revision
 and current branch; [DECISIONS](DECISIONS.md) for product authority.
 
 ## Implemented repository facts
@@ -14,11 +14,15 @@ Repository/GitHub and Subject/Session/Lesson runtime flows were removed. Sprint 
 integrates UUID Auth/JWT/refresh persistence, learner `/api/v1` catalog and admin
 catalog CRUD/publication, and UUID Run/Submission/worker SQL. Shared execution
 checks require an active user, published package/problem, unlocked level and
-assigned active language. Submission detail is owner-only (outsiders404).
+assigned active language. Submission detail permits its owner or an active
+database admin (outsiders404); forged role headers grant no access.
 Retired root problem/admin paths return410; unmounted legacy source is not an
-active API. Root Auth works with UUID tokens; full v1 Auth/profile/history/stats,
-Forum, AI and leaderboard remain pending. Old root stats still needs schema work.
-See [Sprint 2 acceptance](SPRINT2_ACCEPTANCE.md) for exact runtime scope.
+active API. Root Auth works with UUID tokens; full v1 Auth/profile, Forum, AI and
+leaderboard endpoints remain pending. Submission detail/history/latest/stats now
+share the target contract at root and `/api/v1`. History uses stable pagination
+and AND filters without source. Latest absence is200 with `submission:null`.
+Stats reads progress/rank without rating; activity/streak use UTC Accepted dates.
+See [Sprint 3 acceptance](SPRINT3_ACCEPTANCE.md) for tested scope and compatibility.
 
 Run is synchronous sample execution via Piston. Submit persists Pending, uses
 Redis LPUSH/BRPOP, then worker/Piston/persisted verdict. No Asynq rewrite.
@@ -26,7 +30,12 @@ Shared success/error envelopes and routing 404/405 handling are implemented;
 HEAD/204 are bodyless where endpoints select204 (root logout still uses200).
 Real PostgreSQL/Redis tests passed. Task6 now also has a trusted real-Piston
 Docker smoke; see [deployment evidence](be/DEPLOYMENT.md). It does not certify
-production sandbox security. Worker recovery is still pending.
+production sandbox security. Worker recovery runs at startup/every30s: Pending
+older than30s and Running without a heartbeat for2m are recovered in batches100.
+Heartbeat is15s; three claimed attempts exhaust to Internal Error. Final writes
+require the current Running attempt. Lost enqueue and duplicate/stale delivery
+have real PostgreSQL/Redis coverage. Verdict/Accepted source/progress commit
+atomically; repeated `(user,problem,language,source_hash)` does not inflate counts.
 
 ## Target contracts for frontend mocks
 
