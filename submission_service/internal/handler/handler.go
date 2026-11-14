@@ -111,14 +111,19 @@ func (h *Handler) ListMySubmissions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	items, err := h.svc.ListByUserID(r.Context(), userID)
+	query, field := historyQuery(r.URL.Query())
+	if field != "" {
+		response.ErrorValidation(w, "Invalid query parameter", field)
+		return
+	}
+	items, err := h.svc.History(r.Context(), userID, query)
 	if err != nil {
 		h.log.Error("list submissions failed", slog.String("error", err.Error()))
 		response.ErrorSimple(w, http.StatusInternalServerError, "Internal server error")
 		return
 	}
 
-	response.Success(w, http.StatusOK, dto.ListSubmissionsResponse{Submissions: items}, "User submissions retrieved successfully")
+	response.Success(w, http.StatusOK, items, "User submissions retrieved successfully")
 }
 
 // GetLatestForProblem handles GET /me/submissions/{problemId}/latest.
@@ -135,7 +140,12 @@ func (h *Handler) GetLatestForProblem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sub, err := h.svc.GetLatestByUserAndProblem(r.Context(), userID, problemID)
+	languageID := r.URL.Query().Get("languageId")
+	if r.URL.Query().Has("languageId") && !middleware.ValidUUID(languageID) {
+		response.ErrorValidation(w, "Invalid language ID", "languageId")
+		return
+	}
+	sub, err := h.svc.GetLatestByUserAndProblem(r.Context(), userID, problemID, languageID)
 	if err != nil {
 		if errors.Is(err, service.ErrNoSubmissionForProblem) {
 			visible, e := h.svc.VisibleProblem(r.Context(), userID, problemID)

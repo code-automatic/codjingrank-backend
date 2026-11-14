@@ -39,7 +39,7 @@ func TestSubmissionAdminAndInactiveReadPolicy(t *testing.T) {
 			t.Fatalf("want %d got %d %s", want, rec.Code, rec.Body.String())
 		}
 		if want == 200 {
-			testutil.Capture(t, rec, "GET", "/api/v1/submissions/{id}")
+			testutil.Capture(t, rec, "GET", "GET /api/v1/submissions/{id}")
 		}
 	}
 	request(other.UserID, 404)
@@ -75,5 +75,5 @@ func TestLatestAbsentIsNull(t *testing.T) {
 	if rec.Code != 200 || env.Data.Submission != nil {
 		t.Fatalf("latest absence: %d %s", rec.Code, rec.Body.String())
 	}
-	testutil.Capture(t, rec, "GET", "/api/v1/me/submissions/{problemId}/latest")
+	testutil.Capture(t, rec, "GET", "GET /api/v1/me/submissions/{problemId}/latest")
 }

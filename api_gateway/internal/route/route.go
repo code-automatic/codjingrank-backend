@@ -79,6 +79,9 @@ func RegisterProxyRoutes(mux *http.ServeMux, proxies *ProxySet, log *slog.Logger
 	mux.Handle("POST /api/v1/run", authMW(stripAllAuth(stripV1(proxies.Run))))
 	mux.Handle("POST /api/v1/submit", authMW(stripAllAuth(stripV1(proxies.Submission))))
 	mux.Handle("GET /api/v1/submissions/{id}", authMW(stripAllAuth(stripV1(proxies.Submission))))
+	mux.Handle("GET /api/v1/me/submissions", authMW(stripAllAuth(stripV1(proxies.Submission))))
+	mux.Handle("GET /api/v1/me/submissions/{problemId}/latest", authMW(stripAllAuth(stripV1(proxies.Submission))))
+	mux.Handle("GET /api/v1/me/stats", authMW(stripAllAuth(stripV1(proxies.Submission))))
 	// Health checks proxied to backend services
 	mux.Handle("GET /health/auth", stripUserHeaders(stripHealthPath(proxies.AuthPublic)))
 	mux.Handle("GET /health/run", stripUserHeaders(stripHealthPath(proxies.Run)))

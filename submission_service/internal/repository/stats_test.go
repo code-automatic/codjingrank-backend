@@ -2,119 +2,80 @@ package repository
 
 import (
 	"context"
-	"os"
+	"innogen-backend/shared/testutil"
 	"testing"
 	"time"
-
-	"innogen-backend/shared/database"
 )
 
-func TestGetUserStats(t *testing.T) {
-	url := os.Getenv("LEGACY_TEST_DATABASE_URL")
-	if url == "" {
-		t.Skip("legacy schema integration test; not a target runtime route")
-	}
+func TestTargetStatsDistinctProgressAndUTCActivity(t *testing.T) {
+	f := testutil.Catalog(t)
 	ctx := context.Background()
-	pool, err := database.NewPostgresPool(ctx, url)
+	repo := New(f.Pool)
+	stats, err := repo.GetUserStats(ctx, f.UserID)
 	if err != nil {
-		t.Skip("Database not available")
+		t.Fatal(err)
 	}
-	defer pool.Close()
-
-	repo := New(pool)
-
-	// Use an isolated user ID for testing
-	userID := "00000000-0000-0000-0000-000000099999"
-
-	// Ensure the user exists
-	_, err = pool.Exec(ctx, `INSERT INTO users (id, username, email, password) VALUES ($1, 'testuserstats', 'stats@test.com', 'hash') ON CONFLICT (id) DO NOTHING`, userID)
-	if err != nil {
-		t.Fatalf("failed to insert test user: %v", err)
+	if stats.Rank.CurrentRank != nil || stats.SolvedCount.Total != 0 || stats.Activity == nil || len(stats.Activity) != 0 {
+		t.Fatalf("empty stats: %+v", stats)
 	}
-
-	// Create some problems
-	_, err = pool.Exec(ctx, `
-		INSERT INTO problems (id, slug, title, difficulty, problem_md) VALUES 
-		(9001, 'prob-9001', 'P1', 'Easy', 'md'),
-		(9002, 'prob-9002', 'P2', 'Medium', 'md'),
-		(9003, 'prob-9003', 'P3', 'Hard', 'md')
-		ON CONFLICT DO NOTHING
-	`)
-	if err != nil {
-		t.Fatalf("failed to insert test problems: %v", err)
-	}
-
-	// Ensure clean state for this user
-	pool.Exec(ctx, `DELETE FROM submissions WHERE user_id = $1`, userID)
-
-	// 1. user with no submissions returns zeros and empty activity.
-	stats, err := repo.GetUserStats(ctx, userID)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-	if stats.SolvedCount.Total != 0 {
-		t.Errorf("expected 0 total solved, got %d", stats.SolvedCount.Total)
-	}
-	if len(stats.Activity) != 0 {
-		t.Errorf("expected 0 activity, got %d", len(stats.Activity))
-	}
-	if stats.Streak.CurrentStreak != 0 || stats.Streak.MaxStreak != 0 {
-		t.Errorf("expected 0 streaks, got %d/%d", stats.Streak.CurrentStreak, stats.Streak.MaxStreak)
-	}
-
-	// 2. duplicate accepted submissions for same problem count once.
-	// 3. wrong answer submissions do not count solved.
-	now := time.Now()
-	yesterday := now.Add(-24 * time.Hour)
-
-	// Insert WA
-	_, err = pool.Exec(ctx, `INSERT INTO submissions (user_id, problem_id, language_id, status, code, created_at) VALUES ($1, $2, $3, 'Wrong Answer', 'x', $4)`, userID, 9001, 1, yesterday)
-
-	// Insert AC (duplicate for 9001)
-	_, err = pool.Exec(ctx, `INSERT INTO submissions (user_id, problem_id, language_id, status, code, created_at) VALUES ($1, $2, $3, 'Accepted', 'x', $4)`, userID, 9001, 1, yesterday)
-	_, err = pool.Exec(ctx, `INSERT INTO submissions (user_id, problem_id, language_id, status, code, created_at) VALUES ($1, $2, $3, 'Accepted', 'x', $4)`, userID, 9001, 1, now)
-
-	// Insert AC for medium
-	_, err = pool.Exec(ctx, `INSERT INTO submissions (user_id, problem_id, language_id, status, code, created_at) VALUES ($1, $2, $3, 'Accepted', 'x', $4)`, userID, 9002, 1, now)
-
-	if err != nil {
-		t.Fatalf("failed to insert submissions: %v", err)
-	}
-
-	stats, err = repo.GetUserStats(ctx, userID)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-
-	if stats.SolvedCount.Total != 2 {
-		t.Errorf("expected 2 total solved, got %d", stats.SolvedCount.Total)
-	}
-	if stats.SolvedCount.Easy != 1 {
-		t.Errorf("expected 1 easy solved, got %d", stats.SolvedCount.Easy)
-	}
-	if stats.SolvedCount.Medium != 1 {
-		t.Errorf("expected 1 medium solved, got %d", stats.SolvedCount.Medium)
-	}
-
-	// 4. activity groups by date.
-	if len(stats.Activity) != 2 {
-		t.Errorf("expected 2 activity days, got %d", len(stats.Activity))
-	} else {
-		// yesterday should have count 1 (only 1 accepted)
-		// today should have count 2 (2 accepted)
-		if stats.Activity[0].Count != 1 {
-			t.Errorf("expected yesterday activity count 1, got %d", stats.Activity[0].Count)
+	today := time.Now().UTC().Truncate(24 * time.Hour)
+	for i, code := range []string{"a", "a", "b"} {
+		sub, e := repo.CreateSubmission(ctx, f.UserID, f.ProblemID, f.LanguageID, code)
+		if e != nil {
+			t.Fatal(e)
 		}
-		if stats.Activity[1].Count != 2 {
-			t.Errorf("expected today activity count 2, got %d", stats.Activity[1].Count)
+		if _, e = f.Pool.Exec(ctx, `UPDATE submissions SET created_at=now()-interval '11 seconds' WHERE id=$1`, sub.ID); e != nil {
+			t.Fatal(e)
+		}
+		a, e := repo.ClaimSubmission(ctx, sub.ID)
+		if e != nil {
+			t.Fatal(e)
+		}
+		if e = repo.UpdateSubmissionResult(ctx, sub.ID, a, "Accepted", nil, nil, nil, 1, 1); e != nil {
+			t.Fatal(e)
+		}
+		at := today.Add(time.Minute)
+		if i == 0 {
+			at = today.Add(-time.Minute)
+		}
+		if _, e = f.Pool.Exec(ctx, `UPDATE submissions SET judged_at=$2 WHERE id=$1`, sub.ID, at); e != nil {
+			t.Fatal(e)
 		}
 	}
-
-	// 5. streak calculation handles gaps.
-	if stats.Streak.CurrentStreak != 2 {
-		t.Errorf("expected current streak 2, got %d", stats.Streak.CurrentStreak)
+	stats, err = repo.GetUserStats(ctx, f.UserID)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if stats.Streak.MaxStreak != 2 {
-		t.Errorf("expected max streak 2, got %d", stats.Streak.MaxStreak)
+	if stats.SolvedCount.Total != 1 || stats.SolvedCount.Easy != 1 || stats.Rank.CurrentRank == nil || len(stats.Activity) != 2 || stats.Activity[0].Count != 1 || stats.Activity[1].Count != 2 || stats.Activity[1].Date != today.Format("2006-01-02") || stats.Streak.CurrentStreak != 2 {
+		t.Fatalf("stats %+v", stats)
+	}
+	var count int
+	if err = f.Pool.QueryRow(ctx, `SELECT accepted_count FROM user_problem_progress WHERE user_id=$1`, f.UserID).Scan(&count); err != nil || count != 2 {
+		t.Fatalf("distinct Accepted count %d %v", count, err)
+	}
+}
+
+func TestUTCStreakGapsAndFutureDates(t *testing.T) {
+	day := func(s string) time.Time {
+		d, e := time.Parse("2006-01-02", s)
+		if e != nil {
+			t.Fatal(e)
+		}
+		return d
+	}
+	for _, tc := range []struct {
+		dates        []time.Time
+		now          string
+		current, max int
+	}{
+		{nil, "2026-11-14", 0, 0},
+		{[]time.Time{day("2026-11-10"), day("2026-11-11"), day("2026-11-13")}, "2026-11-14", 1, 2},
+		{[]time.Time{day("2026-11-10"), day("2026-11-11")}, "2026-11-14", 0, 2},
+		{[]time.Time{day("2026-11-15")}, "2026-11-14", 0, 1},
+	} {
+		got := utcStreak(tc.dates, day(tc.now))
+		if got.CurrentStreak != tc.current || got.MaxStreak != tc.max {
+			t.Fatalf("streak %+v", got)
+		}
 	}
 }
