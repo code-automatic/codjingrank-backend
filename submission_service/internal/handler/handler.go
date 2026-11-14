@@ -76,6 +76,10 @@ func (h *Handler) Submit(w http.ResponseWriter, r *http.Request) {
 
 // GetByID handles GET /submissions/{id}.
 func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
+	uid, admin, ok := h.reader(w, r)
+	if !ok {
+		return
+	}
 	id := r.PathValue("id")
 	if id == "" || !isValidUUID(id) {
 		response.ErrorSimple(w, http.StatusBadRequest, "Invalid submission ID")
@@ -93,8 +97,7 @@ func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	uid, ok := middleware.GetUserID(r)
-	if !ok || sub.UserID != uid {
+	if !admin && sub.UserID != uid {
 		response.ErrorSimple(w, 404, "Submission not found")
 		return
 	}
@@ -103,9 +106,8 @@ func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
 
 // ListMySubmissions handles GET /me/submissions.
 func (h *Handler) ListMySubmissions(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r)
+	userID, _, ok := h.reader(w, r)
 	if !ok {
-		response.ErrorSimple(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
@@ -121,9 +123,8 @@ func (h *Handler) ListMySubmissions(w http.ResponseWriter, r *http.Request) {
 
 // GetLatestForProblem handles GET /me/submissions/{problemId}/latest.
 func (h *Handler) GetLatestForProblem(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r)
+	userID, _, ok := h.reader(w, r)
 	if !ok {
-		response.ErrorSimple(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
@@ -137,7 +138,16 @@ func (h *Handler) GetLatestForProblem(w http.ResponseWriter, r *http.Request) {
 	sub, err := h.svc.GetLatestByUserAndProblem(r.Context(), userID, problemID)
 	if err != nil {
 		if errors.Is(err, service.ErrNoSubmissionForProblem) {
-			response.ErrorSimple(w, http.StatusNotFound, "No submission found for this problem")
+			visible, e := h.svc.VisibleProblem(r.Context(), userID, problemID)
+			if e != nil {
+				response.ErrorSimple(w, 500, "Internal server error")
+				return
+			}
+			if !visible {
+				response.ErrorSimple(w, 404, "Problem not found")
+				return
+			}
+			response.Success(w, 200, dto.LatestSubmissionResponse{}, "Latest submission retrieved successfully")
 			return
 		}
 		h.log.Error("get latest submission failed", slog.String("error", err.Error()))
