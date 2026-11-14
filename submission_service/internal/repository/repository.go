@@ -207,24 +207,31 @@ func (r *SubmissionRepository) UpdateSubmissionStatus(ctx context.Context, id st
 }
 
 // UpdateSubmissionResult updates the final result of a judged submission.
-func (r *SubmissionRepository) UpdateSubmissionResult(ctx context.Context, id string, status string, runtimeMs *int, memoryKb *int, errorMessage *string, passCount int, totalTestcases int) error {
-	_, err := r.pool.Exec(ctx,
+func (r *SubmissionRepository) UpdateSubmissionResult(ctx context.Context, id string, attempt int, status string, runtimeMs *int, memoryKb *int, errorMessage *string, passCount int, totalTestcases int) error {
+	result, err := r.pool.Exec(ctx,
 		`UPDATE submissions
          SET status = $2, runtime_ms = $3, memory_kb = $4, error_message = $5,
              pass_count = $6, total_testcases = $7, judged_at = CURRENT_TIMESTAMP
-         WHERE id = $1`,
-		id, status, runtimeMs, memoryKb, errorMessage, passCount, totalTestcases,
+         WHERE id = $1 AND status='Running' AND attempt_count=$8`,
+		id, status, runtimeMs, memoryKb, errorMessage, passCount, totalTestcases, attempt,
 	)
 	if err != nil {
 		return fmt.Errorf("repository.UpdateSubmissionResult: %w", err)
+	}
+	if result.RowsAffected() != 1 {
+		return errors.New("submission attempt no longer owns job")
 	}
 	return nil
 }
 
 // ClaimSubmission permits one worker to execute a Pending submission.
-func (r *SubmissionRepository) ClaimSubmission(ctx context.Context, id string) (bool, error) {
-	result, err := r.pool.Exec(ctx, `UPDATE submissions SET status='Running',claimed_at=now(),attempt_count=attempt_count+1 WHERE id=$1 AND status='Pending'`, id)
-	return result.RowsAffected() == 1, err
+func (r *SubmissionRepository) ClaimSubmission(ctx context.Context, id string) (int, error) {
+	var attempt int
+	err := r.pool.QueryRow(ctx, `UPDATE submissions SET status='Running',claimed_at=now(),attempt_count=attempt_count+1 WHERE id=$1 AND status='Pending' RETURNING attempt_count`, id).Scan(&attempt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, nil
+	}
+	return attempt, err
 }
 
 func (r *SubmissionRepository) EnrichSubmission(ctx context.Context, s *models.Submission) error {

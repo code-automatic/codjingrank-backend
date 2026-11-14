@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"innogen-backend/shared/constants"
 	"innogen-backend/shared/judge"
@@ -33,8 +34,22 @@ func New(log *slog.Logger, repo *repository.SubmissionRepository, pistonClient *
 
 // Run starts the worker loop, blocking until ctx is cancelled.
 func (w *Worker) Run(ctx context.Context) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	w.log.Info("worker started")
 	w.reconcileStaleSubmissions(ctx)
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				w.reconcileStaleSubmissions(ctx)
+			}
+		}
+	}()
 	for {
 		select {
 		case <-ctx.Done():
@@ -69,6 +84,8 @@ func (w *Worker) processOne(ctx context.Context) error {
 
 // processJob handles the full judging flow for a single submission.
 func (w *Worker) processJob(ctx context.Context, submissionID string) error {
+	ctx, cancel := context.WithTimeout(ctx, 90*time.Second)
+	defer cancel()
 	// 1. Load submission
 	sub, err := w.repo.FindByID(ctx, submissionID)
 	if err != nil {
@@ -80,50 +97,63 @@ func (w *Worker) processJob(ctx context.Context, submissionID string) error {
 	}
 
 	// Duplicate delivery must not execute or overwrite a persisted verdict.
-	claimed, err := w.repo.ClaimSubmission(ctx, submissionID)
+	attempt, err := w.repo.ClaimSubmission(ctx, submissionID)
 	if err != nil {
 		return fmt.Errorf("claim submission: %w", err)
 	}
-	if !claimed {
+	if attempt == 0 {
 		return nil
 	}
+	go func() {
+		ticker := time.NewTicker(15 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if e := w.repo.Heartbeat(ctx, submissionID, attempt); e != nil {
+					w.log.Warn("submission heartbeat failed", slog.String("submissionId", submissionID))
+				}
+			}
+		}
+	}()
 
 	// 3. Load problem
 	problem, err := w.repo.GetProblemByID(ctx, sub.ProblemID)
 	if err != nil {
 		errMsg := "Judging service unavailable"
-		_ = w.repo.UpdateSubmissionResult(ctx, submissionID, constants.StatusInternalError, nil, nil, &errMsg, 0, 0)
-		return nil
+		return w.repo.UpdateSubmissionResult(ctx, submissionID, attempt, constants.StatusInternalError, nil, nil, &errMsg, 0, 0)
 	}
 	if problem == nil {
 		errMsg := "Problem not found"
-		_ = w.repo.UpdateSubmissionResult(ctx, submissionID, constants.StatusInternalError, nil, nil, &errMsg, 0, 0)
-		return nil
+		return w.repo.UpdateSubmissionResult(ctx, submissionID, attempt, constants.StatusInternalError, nil, nil, &errMsg, 0, 0)
 	}
 
 	// 4. Load language
 	lang, err := w.repo.GetLanguageByID(ctx, sub.LanguageID)
 	if err != nil {
 		errMsg := "Judging service unavailable"
-		_ = w.repo.UpdateSubmissionResult(ctx, submissionID, constants.StatusInternalError, nil, nil, &errMsg, 0, 0)
-		return nil
+		return w.repo.UpdateSubmissionResult(ctx, submissionID, attempt, constants.StatusInternalError, nil, nil, &errMsg, 0, 0)
 	}
 	if lang == nil {
 		errMsg := "Language not found"
-		_ = w.repo.UpdateSubmissionResult(ctx, submissionID, constants.StatusInternalError, nil, nil, &errMsg, 0, 0)
-		return nil
+		return w.repo.UpdateSubmissionResult(ctx, submissionID, attempt, constants.StatusInternalError, nil, nil, &errMsg, 0, 0)
 	}
 
 	if err = w.repo.LoadTemplate(ctx, problem, sub.LanguageID); err != nil {
 		msg := "Judging configuration unavailable"
-		return w.repo.UpdateSubmissionResult(ctx, submissionID, constants.StatusInternalError, nil, nil, &msg, 0, 0)
+		return w.repo.UpdateSubmissionResult(ctx, submissionID, attempt, constants.StatusInternalError, nil, nil, &msg, 0, 0)
 	}
 	// 5. Load test cases
 	testCases, err := w.repo.GetTestCasesByProblemID(ctx, sub.ProblemID)
 	if err != nil {
 		errMsg := "Judging service unavailable"
-		_ = w.repo.UpdateSubmissionResult(ctx, submissionID, constants.StatusInternalError, nil, nil, &errMsg, 0, 0)
-		return nil
+		return w.repo.UpdateSubmissionResult(ctx, submissionID, attempt, constants.StatusInternalError, nil, nil, &errMsg, 0, 0)
+	}
+	if len(testCases) == 0 {
+		msg := "Judging configuration unavailable"
+		return w.repo.UpdateSubmissionResult(ctx, submissionID, attempt, constants.StatusInternalError, nil, nil, &msg, 0, 0)
 	}
 
 	// 6. Determine file name
@@ -182,7 +212,7 @@ func (w *Worker) processJob(ctx context.Context, submissionID string) error {
 			runStderr = pistonResp.Run.Stderr
 			runCode = pistonResp.Run.Code
 			runSignal = pistonResp.Run.Signal
-			runTime = pistonResp.Run.CPUTime
+			runTime = pistonResp.Run.CPUTime / 1000
 		}
 
 		jr := judge.Evaluate(tc.ExpectedOutput, compileStderr, runStdout, runStderr, runCode, runSignal, runTime, problem.TimeLimitMs)
@@ -236,7 +266,7 @@ func (w *Worker) processJob(ctx context.Context, submissionID string) error {
 		errorMessage = &safe
 	}
 	// 9. Update submission
-	if err := w.repo.UpdateSubmissionResult(ctx, submissionID, overallStatus, maxRuntimeMs, nil, errorMessage, passed, len(testCases)); err != nil {
+	if err := w.repo.UpdateSubmissionResult(ctx, submissionID, attempt, overallStatus, maxRuntimeMs, nil, errorMessage, passed, len(testCases)); err != nil {
 		return fmt.Errorf("update result: %w", err)
 	}
 
@@ -251,7 +281,17 @@ func (w *Worker) processJob(ctx context.Context, submissionID string) error {
 }
 
 // reconcileStaleSubmissions finds Pending or long-Running submissions and re-enqueues them.
-// TODO: Implement proper reconciliation. For MVP, this is a placeholder.
 func (w *Worker) reconcileStaleSubmissions(ctx context.Context) {
-	w.log.Info("stale submission reconciliation placeholder called")
+	ids, err := w.repo.Recover(ctx, 30*time.Second, 2*time.Minute, 3)
+	if err != nil {
+		w.log.Error("submission recovery scan failed")
+		return
+	}
+	for _, id := range ids {
+		if err = w.queue.Enqueue(ctx, id); err != nil {
+			w.log.Error("submission recovery enqueue failed", slog.String("submissionId", id))
+			continue
+		}
+		w.log.Info("submission recovered", slog.String("submissionId", id))
+	}
 }
