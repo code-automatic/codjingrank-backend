@@ -1,8 +1,9 @@
 # Next Steps — v2.0
 
-Updated: 2026-11-14. Delivery deadline: 22/11/2026.
+Updated: 2026-11-23. Original delivery deadline: 22/11/2026.
 Baseline: [decisions](DECISIONS.md); current evidence:
-[Sprint 3 BE acceptance](SPRINT3_ACCEPTANCE.md).
+[Sprint 3 BE acceptance](SPRINT3_ACCEPTANCE.md) and
+[Sprint 4 BE acceptance](SPRINT4_ACCEPTANCE.md).
 
 ## Sprint 3 handoff
 
@@ -18,11 +19,10 @@ Baseline: [decisions](DECISIONS.md); current evidence:
 
 1. Complete the full target v1 Auth/profile contract. Root UUID Auth/refresh
    already works; do not assume every target operation has a v1 alias.
-2. Implement leaderboard endpoints from distinct solved problems/Accepted
-   sources, excluding AI score.
-3. Finalize provider/rubric/quota/retry choices before implementing isolated
-   AI review after persisted Accepted. AI failure must never change verdict.
-4. Implement Forum/moderation and remaining target routes with contract tests.
+2. Select a live AI provider/model, set the provider spending limit, and
+   verify the adapter with deliberate test submissions.
+3. Integrate the frontend with the locally verified leaderboard, Forum and
+   AI review contracts and run the team acceptance flow.
 
 Accepted progress/unlock, worker recovery, ownership and v1 submission
 history/latest/stats are implemented; see the acceptance report for tests,

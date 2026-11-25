@@ -1,12 +1,13 @@
 # Backend AI Context
 
-Updated 2026-11-14. See [PROJECT_STATE](../PROJECT_STATE.md) for tested revision
+Updated 2026-11-23. See [PROJECT_STATE](../PROJECT_STATE.md) for tested revision
 and current branch; [DECISIONS](DECISIONS.md) for product authority.
 
 ## Implemented repository facts
 
 Go monorepo (`net/http`, pgx, shared packages), Gateway :8080, Auth :8081,
-Run :8082, Submission API :8083 and worker. One shared PostgreSQL target schema
+Run :8082, Submission API :8083 and worker, Forum :8084, and AI :8085.
+One shared PostgreSQL target schema
 uses UUIDs and Package → three Levels → Problem. `schema.sql` is a destructive
 fresh-database bootstrap, not an old-data migration.
 
@@ -17,12 +18,14 @@ checks require an active user, published package/problem, unlocked level and
 assigned active language. Submission detail permits its owner or an active
 database admin (outsiders404); forged role headers grant no access.
 Retired root problem/admin paths return410; unmounted legacy source is not an
-active API. Root Auth works with UUID tokens; full v1 Auth/profile, Forum, AI and
-leaderboard endpoints remain pending. Submission detail/history/latest/stats now
+active API. Root Auth works with UUID tokens; full v1 Auth/profile remains
+pending. Submission detail/history/latest/stats now
 share the target contract at root and `/api/v1`. History uses stable pagination
 and AND filters without source. Latest absence is200 with `submission:null`.
 Stats reads progress/rank without rating; activity/streak use UTC Accepted dates.
 See [Sprint 3 acceptance](SPRINT3_ACCEPTANCE.md) for tested scope and compatibility.
+See [Sprint 4 acceptance](SPRINT4_ACCEPTANCE.md) for the locally verified
+leaderboard, Forum and Accepted-only AI review endpoints.
 
 Run is synchronous sample execution via Piston. Submit persists Pending, uses
 Redis LPUSH/BRPOP, then worker/Piston/persisted verdict. No Asynq rewrite.
@@ -68,6 +71,6 @@ migration; the transport design alone does not implement RS256/JWKS.
 `users.avatar_url` and `users.bio` exist in the fresh schema (nullable, 2048/1000
 characters). Go DTO/query/handler integration is pending. Password recovery
 still needs reset-token persistence and email delivery.
-AI provider/rubric/quota/retry policy remains open; dimensions are dynamic in
-mock DTOs. Optional features are documented, not silently marked complete.
+The AI adapter has an explicit enablement cutoff and uses the v1 rubric.
+A live provider/model and provider spending limits remain deployment decisions.
 Use a dedicated project test database; never HAPI or another project's services.

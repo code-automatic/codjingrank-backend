@@ -11,6 +11,7 @@ DROP TABLE IF EXISTS ai_reviews CASCADE;
 DROP TABLE IF EXISTS daily_challenges CASCADE;
 DROP TABLE IF EXISTS forum_post_likes CASCADE;
 DROP TABLE IF EXISTS forum_comments CASCADE;
+DROP TABLE IF EXISTS forum_post_views CASCADE;
 DROP TABLE IF EXISTS forum_posts CASCADE;
 DROP TABLE IF EXISTS user_problem_progress CASCADE;
 DROP TABLE IF EXISTS accepted_solutions CASCADE;
@@ -532,6 +533,12 @@ CREATE TABLE forum_post_likes (
     PRIMARY KEY (post_id, user_id)
 );
 
+CREATE TABLE forum_post_views (
+    post_id uuid NOT NULL REFERENCES forum_posts (id) ON DELETE CASCADE,
+    viewer_key text NOT NULL,
+    PRIMARY KEY (post_id, viewer_key)
+);
+
 CREATE TABLE ai_reviews (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     submission_id uuid NOT NULL REFERENCES submissions (id) ON DELETE RESTRICT,
@@ -544,6 +551,7 @@ CREATE TABLE ai_reviews (
     prompt_version text,
     provider_request_id text,
     error_message text,
+    attempt_count integer NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
     created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
     started_at timestamptz,
     completed_at timestamptz,
