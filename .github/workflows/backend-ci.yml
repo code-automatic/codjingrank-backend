@@ -52,13 +52,18 @@ jobs:
         env:
           RECOVERY_TEST_REDIS_ADDR: 127.0.0.1:6379
         run: go test -count=1 ./submission_service/internal/worker -run TestRedisRecovery
-      - name: Validate actual submission responses against full and learner contracts
+      - name: Validate actual learner HTTP responses against full and learner contracts
         run: |
           python3 -m pip install PyYAML==6.0.3 jsonschema==4.25.1
           capture="$(mktemp)"
-          CATALOG_CONTRACT_CAPTURE="$capture" go test -count=1 ./submission_service/internal/handler ./run_service/internal/handler
+          CATALOG_CONTRACT_CAPTURE="$capture" go test -count=1 ./submission_service/internal/handler ./run_service/internal/handler ./api_gateway/internal/leaderboard ./ai_service/internal/review ./forum_service/internal/forum
           python3 tests/sprint2_contracts.py "$capture"
           python3 tests/sprint2_contracts.py "$capture" docs/openapi_fe.yaml
+      - name: Validate actual Forum moderation HTTP responses against full contract
+        run: |
+          capture="$(mktemp)"
+          FORUM_ADMIN_CONTRACT_CAPTURE="$capture" go test -count=1 ./forum_service/internal/forum
+          python3 tests/sprint2_contracts.py "$capture"
       - name: Schema bootstrap and constraint checks
         env:
           SCHEMA_TEST_CONTAINER: ${{ job.services.postgres.id }}

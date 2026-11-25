@@ -269,6 +269,9 @@ func (w *Worker) processJob(ctx context.Context, submissionID string) error {
 	if err := w.repo.UpdateSubmissionResult(ctx, submissionID, attempt, overallStatus, maxRuntimeMs, nil, errorMessage, passed, len(testCases)); err != nil {
 		return fmt.Errorf("update result: %w", err)
 	}
+	if overallStatus == constants.StatusAccepted {
+		notifyAI(ctx, submissionID)
+	}
 
 	w.log.Info("submission judged",
 		slog.String("submissionId", submissionID),

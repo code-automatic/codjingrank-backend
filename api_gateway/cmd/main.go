@@ -8,6 +8,7 @@ import (
 
 	"innogen-backend/api_gateway/internal/admin"
 	"innogen-backend/api_gateway/internal/catalog"
+	"innogen-backend/api_gateway/internal/leaderboard"
 	"innogen-backend/api_gateway/internal/middleware"
 	"innogen-backend/api_gateway/internal/proxy"
 	"innogen-backend/api_gateway/internal/route"
@@ -84,6 +85,11 @@ func main() {
 	mux.HandleFunc("GET /health", healthHandler)
 
 	catalog.Register(mux, pool, cfg.JWTSecret, log)
+	leaderboard.Register(mux, pool, cfg.JWTSecret, log)
+	if err := route.RegisterCommunityProxies(mux, log, os.Getenv("FORUM_SERVICE_URL"), os.Getenv("AI_SERVICE_URL")); err != nil {
+		log.Error("failed to configure forum and AI review proxies", "error", err)
+		os.Exit(1)
+	}
 
 	route.RegisterRetiredCatalog(mux)
 

@@ -177,6 +177,10 @@ Gateway strips `/api/v1` only when the corresponding upstream understands the ta
 
 ### Feature coverage
 
+Sprint 4 adds local runtime support for F10 leaderboard, F11 Forum, F12 Forum
+moderation and F13 AI review reads. For smoke evidence and AI enablement, see
+[Sprint 4 acceptance](SPRINT4_ACCEPTANCE.md).
+
 | SRS | Mock surface |
 |---|---|
 | F01 | Auth/profile/password recovery |

@@ -2,7 +2,7 @@ PISTON_BASE_URL ?= http://localhost:2000
 
 DATABASE_URL ?= postgres://innogen:innogen@localhost:5432/innogen?sslmode=disable
 
-.PHONY: docker-smoke run-gateway run-auth run-runner run-submission run-submission-worker run-all stop-all tidy fmt test compose-up compose-down logs-piston piston-install compose-full-up compose-full-down compose-full-logs compose-ps docker-build docker-reset logs-gateway logs-auth logs-runner logs-submission logs-worker ci gofmt-check ci-go ci-docker ci-openapi
+.PHONY: docker-smoke run-gateway run-auth run-runner run-submission run-submission-worker run-forum run-ai run-all stop-all tidy fmt test compose-up compose-down logs-piston piston-install compose-full-up compose-full-down compose-full-logs compose-ps docker-build docker-reset logs-gateway logs-auth logs-runner logs-submission logs-worker logs-forum logs-ai ci gofmt-check ci-go ci-docker ci-openapi
 
 run-gateway:
 	go run ./api_gateway/cmd/main.go
@@ -18,6 +18,12 @@ run-submission:
 
 run-submission-worker:
 	go run ./submission_service/cmd/worker/main.go
+
+run-forum:
+	go run ./forum_service/cmd/main.go
+
+run-ai:
+	go run ./ai_service/cmd/main.go
 
 tidy:
 	go mod tidy
@@ -48,6 +54,8 @@ run-all:
 	@echo "  auth_service        :8081"
 	@echo "  run_service         :8082"
 	@echo "  submission_service  :8083"
+	@echo "  forum_service       :8084"
+	@echo "  ai_service          :8085"
 	@echo "  submission_worker   (background)"
 	@echo ""
 	@echo "Press Ctrl+C to stop all services."
@@ -59,12 +67,14 @@ run-all:
 		go run ./run_service/cmd/main.go & \
 		go run ./submission_service/cmd/api/main.go & \
 		go run ./submission_service/cmd/worker/main.go & \
+		go run ./forum_service/cmd/main.go & \
+		go run ./ai_service/cmd/main.go & \
 		wait \
 	'
 
 stop-all:
 	@echo "Stopping all services by ports..."
-	@for port in 8080 8081 8082 8083; do \
+	@for port in 8080 8081 8082 8083 8084 8085; do \
 		pids=$$(lsof -ti tcp:$$port 2>/dev/null); \
 		if [ -n "$$pids" ]; then \
 			echo "  killing port $$port: $$pids"; \
@@ -110,6 +120,12 @@ logs-submission:
 
 logs-worker:
 	docker compose logs -f submission_worker
+
+logs-forum:
+	docker compose logs -f forum_service
+
+logs-ai:
+	docker compose logs -f ai_service
 
 gofmt-check:
 	@test -z "$$(gofmt -l . 2>/dev/null | grep -v node_modules | grep -v vendor)" || (echo "Files not formatted:"; gofmt -l . 2>/dev/null | grep -v node_modules | grep -v vendor; exit 1)

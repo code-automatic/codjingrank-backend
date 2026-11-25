@@ -15,6 +15,12 @@ services:
   submission_service:
     ports: !reset []
 
+  forum_service:
+    ports: !reset []
+
+  ai_service:
+    ports: !reset []
+
   postgres:
     ports: !reset []
 

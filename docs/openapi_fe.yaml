@@ -1697,7 +1697,7 @@ paths:
       security:
       - {}
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F10
       x-priority: Must
@@ -1787,7 +1787,7 @@ paths:
         All-time periodStart/periodEnd are null.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F10
       x-priority: Should
@@ -1844,7 +1844,7 @@ paths:
       security:
       - {}
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: forum_service
       x-feature: F11
       x-priority: Must
@@ -1958,7 +1958,7 @@ paths:
         that problem. Counters/status are server-owned.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: forum_service
       x-feature: F11
       x-priority: Must
@@ -2026,7 +2026,7 @@ paths:
       security:
       - {}
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: forum_service
       x-feature: F11
       x-priority: Must
@@ -2084,7 +2084,7 @@ paths:
         restored by owner.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: forum_service
       x-feature: F11
       x-priority: Must
@@ -2153,7 +2153,7 @@ paths:
         are no longer public.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: forum_service
       x-feature: F11
       x-priority: Must
@@ -2186,7 +2186,7 @@ paths:
         another page). Deleted root with visible replies remains a tombstone with content=null and isDeleted=true; omit deleted
         leaf comments. No hidden/deleted post content.
       security: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: forum_service
       x-feature: F11
       x-priority: Must
@@ -2260,7 +2260,7 @@ paths:
         Replies to replies forbidden. Content plain text, escaped on rendering.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: forum_service
       x-feature: F11
       x-priority: Must
@@ -2316,7 +2316,7 @@ paths:
       description: Live comment owner only on a published post; outsider404. Cannot move parent/post or restore deleted comment.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: forum_service
       x-feature: F11
       x-priority: Must
@@ -2371,7 +2371,7 @@ paths:
       description: Owner only; soft-delete, repeat204. Preserve reply topology; tombstone response hides deleted content.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: forum_service
       x-feature: F11
       x-priority: Must
@@ -2403,7 +2403,7 @@ paths:
       description: Published post, idempotent (one row per post/user). Repeating PUT does not increment twice.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: forum_service
       x-feature: F11
       x-priority: Must
@@ -2444,7 +2444,7 @@ paths:
         like.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: forum_service
       x-feature: F11
       x-priority: Must
@@ -2491,7 +2491,7 @@ paths:
         failure remains200 business state, Accepted unchanged. No model/prompt/provider identifiers or raw errors exposed.'
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: ai_service
       x-feature: F13
       x-priority: Must

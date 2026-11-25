@@ -66,11 +66,15 @@ services:
       AUTH_SERVICE_URL: http://auth_service:8081
       RUN_SERVICE_URL: http://run_service:8082
       SUBMISSION_SERVICE_URL: http://submission_service:8083
+      FORUM_SERVICE_URL: http://forum_service:8084
+      AI_SERVICE_URL: http://ai_service:8085
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
     depends_on:
       - auth_service
       - run_service
       - submission_service
+      - forum_service
+      - ai_service
 
   auth_service:
     build:
@@ -134,12 +138,51 @@ services:
       DATABASE_URL: postgres://innogen:innogen@postgres:5432/innogen?sslmode=disable
       REDIS_ADDR: redis:6379
       PISTON_BASE_URL: http://piston:2000
+      AI_SERVICE_URL: http://ai_service:8085
+      AI_INTERNAL_SECRET: ${AI_INTERNAL_SECRET:-}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
       piston:
+        condition: service_healthy
+
+  forum_service:
+    build:
+      context: .
+      args:
+        SERVICE_PATH: forum_service/cmd
+    ports:
+      - "127.0.0.1:${FORUM_SERVICE_HOST_PORT:-8084}:8084"
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgres://innogen:innogen@postgres:5432/innogen?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:-innogen-dev-secret}
+      FORUM_SERVICE_PORT: "8084"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  ai_service:
+    build:
+      context: .
+      args:
+        SERVICE_PATH: ai_service/cmd
+    ports:
+      - "127.0.0.1:${AI_SERVICE_HOST_PORT:-8085}:8085"
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgres://innogen:innogen@postgres:5432/innogen?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:-innogen-dev-secret}
+      AI_SERVICE_PORT: "8085"
+      AI_INTERNAL_SECRET: ${AI_INTERNAL_SECRET:-}
+      AI_PROVIDER_URL: ${AI_PROVIDER_URL:-}
+      AI_PROVIDER_TOKEN: ${AI_PROVIDER_TOKEN:-}
+      AI_PROVIDER_MODEL: ${AI_PROVIDER_MODEL:-}
+      AI_ENABLED_SINCE: ${AI_ENABLED_SINCE:-}
+    depends_on:
+      postgres:
         condition: service_healthy
 
 volumes:
