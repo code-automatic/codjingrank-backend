@@ -2,6 +2,7 @@ package dto
 
 import (
 	"strings"
+	"time"
 
 	"innogen-backend/shared/models"
 )
@@ -56,22 +57,33 @@ type MeResponse struct {
 	User UserResponse `json:"user"`
 }
 
-// UserResponse is the public-safe user payload (no password, no timestamps).
+// UserResponse is the public-safe user payload (no password, no secrets).
+// It matches the v1 User schema: RFC3339 timestamps, nullable profile fields.
 type UserResponse struct {
-	ID       string  `json:"id"`
-	Email    string  `json:"email"`
-	Username *string `json:"username"`
-	FullName *string `json:"fullName"`
-	Role     string  `json:"role"`
+	ID        string    `json:"id"`
+	Email     string    `json:"email"`
+	Username  *string   `json:"username"`
+	FullName  *string   `json:"fullName"`
+	AvatarURL *string   `json:"avatarUrl"`
+	Bio       *string   `json:"bio"`
+	Role      string    `json:"role"`
+	IsActive  bool      `json:"isActive"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 // ToUserResponse converts a models.User to a UserResponse.
 func ToUserResponse(u *models.User) UserResponse {
 	return UserResponse{
-		ID:       u.ID,
-		Email:    u.Email,
-		Username: u.Username,
-		FullName: u.FullName,
-		Role:     u.Role,
+		ID:        u.ID,
+		Email:     u.Email,
+		Username:  u.Username,
+		FullName:  u.FullName,
+		AvatarURL: u.AvatarURL,
+		Bio:       u.Bio,
+		Role:      u.Role,
+		IsActive:  u.IsActive,
+		CreatedAt: u.CreatedAt,
+		UpdatedAt: u.UpdatedAt,
 	}
 }

@@ -21,7 +21,7 @@ func New(pool *pgxpool.Pool) *UserRepository {
 	return &UserRepository{pool: pool}
 }
 
-const selectUserColumns = `SELECT id, email, password_hash, username, full_name, role, is_active, created_at, updated_at FROM users`
+const selectUserColumns = `SELECT id, email, password_hash, username, full_name, avatar_url, bio, role, is_active, created_at, updated_at FROM users`
 
 // FindByEmail looks up a user by their email address.
 // Returns nil, nil if no user is found.
@@ -33,6 +33,8 @@ func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*models
 		&u.Password,
 		&u.Username,
 		&u.FullName,
+		&u.AvatarURL,
+		&u.Bio,
 		&u.Role,
 		&u.IsActive,
 		&u.CreatedAt,
@@ -57,6 +59,8 @@ func (r *UserRepository) FindByID(ctx context.Context, id string) (*models.User,
 		&u.Password,
 		&u.Username,
 		&u.FullName,
+		&u.AvatarURL,
+		&u.Bio,
 		&u.Role,
 		&u.IsActive,
 		&u.CreatedAt,
@@ -77,9 +81,9 @@ func (r *UserRepository) CreateUser(ctx context.Context, email, passwordHash, us
 	err := r.pool.QueryRow(ctx,
 		`INSERT INTO users (email, password_hash, username, full_name, role, is_active)
          VALUES ($1, $2, $3, $4, 'student', true)
-         RETURNING id, email, username, full_name, role, is_active, created_at, updated_at`,
+         RETURNING id, email, username, full_name, avatar_url, bio, role, is_active, created_at, updated_at`,
 		email, passwordHash, username, fullName,
-	).Scan(&u.ID, &u.Email, &u.Username, &u.FullName, &u.Role, &u.IsActive, &u.CreatedAt, &u.UpdatedAt)
+	).Scan(&u.ID, &u.Email, &u.Username, &u.FullName, &u.AvatarURL, &u.Bio, &u.Role, &u.IsActive, &u.CreatedAt, &u.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("repository.CreateUser: %w", err)
 	}

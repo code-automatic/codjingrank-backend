@@ -13,6 +13,8 @@ type User struct {
 	Password  string    `json:"-"`
 	Username  *string   `json:"username"`
 	FullName  *string   `json:"fullName"`
+	AvatarURL *string   `json:"avatarUrl"`
+	Bio       *string   `json:"bio"`
 	Role      string    `json:"role"`
 	IsActive  bool      `json:"isActive"`
 	CreatedAt time.Time `json:"createdAt"`
