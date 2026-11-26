@@ -93,6 +93,7 @@ func callProvider(ctx context.Context, url, token, model string, input providerI
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set("x-opencode-session", "codjingrank-ai-review")
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}

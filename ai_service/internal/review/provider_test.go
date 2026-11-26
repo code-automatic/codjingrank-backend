@@ -27,6 +27,10 @@ func TestProviderReturnsValidatedReview(t *testing.T) {
 			t.Error("missing provider token")
 			return
 		}
+		if r.Header.Get("x-opencode-session") != "codjingrank-ai-review" {
+			t.Errorf("unexpected session header: %q", r.Header.Get("x-opencode-session"))
+			return
+		}
 		var body struct {
 			Model          string  `json:"model"`
 			Temperature    float64 `json:"temperature"`
