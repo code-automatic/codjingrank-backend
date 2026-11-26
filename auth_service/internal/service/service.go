@@ -9,14 +9,16 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
 
 	"innogen-backend/auth_service/internal/dto"
 	"innogen-backend/auth_service/internal/jwt"
-	"innogen-backend/auth_service/internal/repository"
 	"innogen-backend/shared/config"
+	"innogen-backend/shared/models"
 )
 
 // Sentinel errors for the service layer.
@@ -31,17 +33,29 @@ var (
 	ErrRefreshTokenInvalid = errors.New("refresh token invalid")
 	ErrRefreshTokenRevoked = errors.New("refresh token revoked")
 	ErrRefreshTokenExpired = errors.New("refresh token expired")
+	ErrForbiddenOrigin     = errors.New("forbidden request origin")
 )
+
+// UserStore is the persistence behaviour required by AuthService.
+type UserStore interface {
+	FindByEmail(ctx context.Context, email string) (*models.User, error)
+	FindByID(ctx context.Context, id string) (*models.User, error)
+	CreateUser(ctx context.Context, email, passwordHash, username, fullName string) (*models.User, error)
+	CreateRefreshToken(ctx context.Context, userID string, tokenHash, userAgent, ipAddress string, expiresAt time.Time) error
+	FindRefreshToken(ctx context.Context, tokenHash string) (id string, userID string, expiresAt time.Time, revokedAt *time.Time, err error)
+	RevokeRefreshToken(ctx context.Context, tokenID string) error
+	RotateRefreshToken(ctx context.Context, tokenID, userID, hash, userAgent, ip string, expires time.Time) (bool, error)
+}
 
 // AuthService handles authentication business logic.
 type AuthService struct {
-	repo   *repository.UserRepository
+	repo   UserStore
 	jwtSvc *jwt.Service
 	cfg    *config.Config
 }
 
 // New creates a new AuthService with the given dependencies.
-func New(repo *repository.UserRepository, jwtSvc *jwt.Service, cfg *config.Config) *AuthService {
+func New(repo UserStore, jwtSvc *jwt.Service, cfg *config.Config) *AuthService {
 	return &AuthService{repo: repo, jwtSvc: jwtSvc, cfg: cfg}
 }
 
@@ -108,6 +122,9 @@ func (s *AuthService) CurrentUser(ctx context.Context, userID string) (*dto.MeRe
 
 // Refresh validates a refresh token and issues a new access token with token rotation.
 func (s *AuthService) Refresh(ctx context.Context, w http.ResponseWriter, r *http.Request) (*dto.LoginResponse, error) {
+	if err := s.validateRequestOrigin(r); err != nil {
+		return nil, err
+	}
 	cookie, err := r.Cookie(s.cfg.RefreshCookieName)
 	if err != nil {
 		return nil, ErrRefreshTokenMissing
@@ -159,15 +176,74 @@ func (s *AuthService) Refresh(ctx context.Context, w http.ResponseWriter, r *htt
 
 // Logout revokes the refresh token and clears the cookie.
 func (s *AuthService) Logout(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+	if err := s.validateRequestOrigin(r); err != nil {
+		return err
+	}
 	cookie, err := r.Cookie(s.cfg.RefreshCookieName)
-	if err == nil {
-		tokenHash := hashToken(cookie.Value)
-		tokenID, _, _, _, _ := s.repo.FindRefreshToken(ctx, tokenHash)
+	if err == nil && cookie.Value != "" {
+		tokenID, _, _, _, findErr := s.repo.FindRefreshToken(ctx, hashToken(cookie.Value))
+		if findErr != nil {
+			s.clearRefreshCookie(w)
+			return findErr
+		}
 		if tokenID != "" {
+			// Best effort: the cookie is cleared even when revocation fails.
+			if revokeErr := s.repo.RevokeRefreshToken(ctx, tokenID); revokeErr != nil {
+				s.clearRefreshCookie(w)
+				return revokeErr
+			}
 		}
 	}
 	s.clearRefreshCookie(w)
 	return nil
+}
+
+// validateRequestOrigin rejects state-changing browser requests whose Origin
+// (or, when Origin is absent, Referer) is not in the configured allowlist.
+// Requests without either header (server-to-server, CLI) are allowed.
+func (s *AuthService) validateRequestOrigin(r *http.Request) error {
+	allowed := parseAllowedOrigins(s.cfg.CORSAllowedOrigins)
+	if origin := strings.TrimSpace(r.Header.Get("Origin")); origin != "" {
+		if !originAllowed(origin, allowed) {
+			return ErrForbiddenOrigin
+		}
+		return nil
+	}
+	if referer := strings.TrimSpace(r.Header.Get("Referer")); referer != "" {
+		if !originAllowed(referer, allowed) {
+			return ErrForbiddenOrigin
+		}
+	}
+	return nil
+}
+
+func parseAllowedOrigins(raw string) map[string]struct{} {
+	allowed := make(map[string]struct{})
+	for _, entry := range strings.Split(raw, ",") {
+		if origin, ok := normalizeOrigin(entry); ok {
+			allowed[origin] = struct{}{}
+		}
+	}
+	return allowed
+}
+
+func originAllowed(raw string, allowed map[string]struct{}) bool {
+	origin, ok := normalizeOrigin(raw)
+	if !ok {
+		return false
+	}
+	_, ok = allowed[origin]
+	return ok
+}
+
+// normalizeOrigin reduces a URL (an Origin header or a Referer URL) to a
+// lowercase scheme://host[:port] origin for exact allowlist comparison.
+func normalizeOrigin(raw string) (string, bool) {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return "", false
+	}
+	return strings.ToLower(u.Scheme) + "://" + strings.ToLower(u.Host), true
 }
 
 func (s *AuthService) setRefreshCookie(w http.ResponseWriter, token string) {
@@ -188,11 +264,15 @@ func (s *AuthService) setRefreshCookie(w http.ResponseWriter, token string) {
 }
 
 func (s *AuthService) clearRefreshCookie(w http.ResponseWriter) {
-	http.SetCookie(w, &http.Cookie{
+	cookie := &http.Cookie{
 		Name: s.cfg.RefreshCookieName, Value: "", HttpOnly: true,
 		Secure: s.cfg.RefreshCookieSecure, SameSite: parseSameSite(s.cfg.RefreshCookieSameSite),
 		Path: s.cfg.RefreshCookiePath, MaxAge: -1,
-	})
+	}
+	if s.cfg.RefreshCookieDomain != "" {
+		cookie.Domain = s.cfg.RefreshCookieDomain
+	}
+	http.SetCookie(w, cookie)
 }
 
 func parseSameSite(s string) http.SameSite {

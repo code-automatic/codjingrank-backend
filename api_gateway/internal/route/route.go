@@ -36,6 +36,16 @@ func stripUserHeaders(next http.Handler) http.Handler {
 	})
 }
 
+// rewritePath replaces the inbound path before forwarding.
+// Used by the v1 users/me facade, which maps to Auth GET /auth/me.
+func rewritePath(path string, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.URL.Path = path
+		r.URL.RawPath = ""
+		next.ServeHTTP(w, r)
+	})
+}
+
 // stripAllAuth removes Authorization and X-User-* headers.
 // Used for authenticated proxy routes where the gateway validates JWT and injects claims.
 func stripAllAuth(next http.Handler) http.Handler {
@@ -82,6 +92,16 @@ func RegisterProxyRoutes(mux *http.ServeMux, proxies *ProxySet, log *slog.Logger
 	mux.Handle("GET /api/v1/me/submissions", authMW(stripAllAuth(stripV1(proxies.Submission))))
 	mux.Handle("GET /api/v1/me/submissions/{problemId}/latest", authMW(stripAllAuth(stripV1(proxies.Submission))))
 	mux.Handle("GET /api/v1/me/stats", authMW(stripAllAuth(stripV1(proxies.Submission))))
+
+	// v1 auth facade for the frontend. Public auth routes strip /api/v1 and keep
+	// the same header handling as their root aliases; users/me rewrites to Auth
+	// GET /auth/me because the upstream does not serve the /users path.
+	mux.Handle("POST /api/v1/auth/login", stripV1(stripUserHeaders(proxies.AuthPublic)))
+	mux.Handle("POST /api/v1/auth/register", stripV1(stripUserHeaders(proxies.AuthPublic)))
+	mux.Handle("POST /api/v1/auth/refresh", stripV1(stripUserHeaders(proxies.AuthPublic)))
+	mux.Handle("POST /api/v1/auth/logout", stripV1(stripUserHeaders(proxies.AuthPublic)))
+	mux.Handle("GET /api/v1/users/me", authMW(stripAllAuth(rewritePath("/auth/me", proxies.Auth))))
+
 	// Health checks proxied to backend services
 	mux.Handle("GET /health/auth", stripUserHeaders(stripHealthPath(proxies.AuthPublic)))
 	mux.Handle("GET /health/run", stripUserHeaders(stripHealthPath(proxies.Run)))
