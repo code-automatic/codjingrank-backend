@@ -52,7 +52,7 @@ func TestReconcileQueuesOnlyEligibleSubmissions(t *testing.T) {
 	assertCount(id, 1)
 	assertCount(wrongID, 0)
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`{"score":90,"summary":"Clear","dimensions":{"readability":90},"findings":[]}`))
+		w.Write([]byte(openAIEnvelope(`{"score":90,"summary":"Clear","dimensions":{"readability":90},"findings":[]}`)))
 	}))
 	defer provider.Close()
 	if err := process(ctx, f.Pool, provider.URL, "", "test-model"); err != nil {
@@ -128,7 +128,7 @@ func TestReconcileQueuesOnlyEligibleSubmissions(t *testing.T) {
 	oldProvider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		close(started)
 		<-release
-		w.Write([]byte(`{"score":12,"summary":"Stale","dimensions":{}}`))
+		w.Write([]byte(openAIEnvelope(`{"score":12,"summary":"Stale","dimensions":{}}`)))
 	}))
 	defer oldProvider.Close()
 	defer func() {

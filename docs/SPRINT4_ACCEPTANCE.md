@@ -22,15 +22,18 @@ route. `AI_PROVIDER_TOKEN` is optional. The cutoff uses RFC3339. The worker
 uses `AI_SERVICE_URL` and the same internal secret. The service defaults to
 port 8085; Forum defaults to 8084.
 
-The provider URL is a configurable HTTP endpoint that accepts a POST JSON body
-with `model`, `promptVersion`, `instructions`, `source`, `language`, and
-public problem statement (`problem`).
-It must return JSON with numeric `score` (0–100), nonempty `summary`, numeric
-`dimensions` object, and optional `findings` containing severity, title,
-explanation, optional suggestion, and optional line bounds. Responses are
-limited to 1 MiB and the request timeout is 30 seconds. The adapter is a custom
-protocol, not a named-provider SDK integration. No live-provider acceptance has
-been performed.
+`AI_PROVIDER_URL` is the full OpenAI-compatible chat completions endpoint
+(for example `https://opencode.ai/inference/go/openai/v1/chat/completions`), not
+a base URL. The adapter sends `model`, `temperature: 0`,
+`response_format: {"type":"json_object"}`, and system/user messages; the user
+message carries the submitted source, language, and public problem statement as
+untrusted data. The assistant message content must be a JSON object with
+numeric `score` (0–100), nonempty `summary`, numeric `dimensions` object, and
+optional `findings` containing severity, title, explanation, optional
+suggestion, and optional line bounds. Responses are limited to 1 MiB and the
+request timeout is 30 seconds. The adapter speaks the OpenAI-compatible chat
+completions protocol; 429 and 5xx responses are retried, while other 4xx
+responses are permanent. No live-provider acceptance has been performed.
 
 ## Reproduce verification
 
