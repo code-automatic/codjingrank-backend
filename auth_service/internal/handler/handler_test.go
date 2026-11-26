@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -16,48 +17,56 @@ import (
 	"innogen-backend/shared/models"
 )
 
-type stubStore struct{}
+type stubStore struct {
+	findTokenID string
+	revokeErr   error
+	revoked     []string
+}
 
-func (stubStore) FindByEmail(ctx context.Context, email string) (*models.User, error) {
+func (s *stubStore) FindByEmail(ctx context.Context, email string) (*models.User, error) {
 	return nil, nil
 }
 
-func (stubStore) FindByID(ctx context.Context, id string) (*models.User, error) {
+func (s *stubStore) FindByID(ctx context.Context, id string) (*models.User, error) {
 	return nil, nil
 }
 
-func (stubStore) CreateUser(ctx context.Context, email, passwordHash, username, fullName string) (*models.User, error) {
+func (s *stubStore) CreateUser(ctx context.Context, email, passwordHash, username, fullName string) (*models.User, error) {
 	return nil, nil
 }
 
-func (stubStore) CreateRefreshToken(ctx context.Context, userID string, tokenHash, userAgent, ipAddress string, expiresAt time.Time) error {
+func (s *stubStore) CreateRefreshToken(ctx context.Context, userID string, tokenHash, userAgent, ipAddress string, expiresAt time.Time) error {
 	return nil
 }
 
-func (stubStore) FindRefreshToken(ctx context.Context, tokenHash string) (string, string, time.Time, *time.Time, error) {
-	return "", "", time.Time{}, nil, nil
+func (s *stubStore) FindRefreshToken(ctx context.Context, tokenHash string) (string, string, time.Time, *time.Time, error) {
+	return s.findTokenID, "", time.Time{}, nil, nil
 }
 
-func (stubStore) RevokeRefreshToken(ctx context.Context, tokenID string) error {
+func (s *stubStore) RevokeRefreshToken(ctx context.Context, tokenID string) error {
+	if s.revokeErr != nil {
+		return s.revokeErr
+	}
+	s.revoked = append(s.revoked, tokenID)
 	return nil
 }
 
-func (stubStore) RotateRefreshToken(ctx context.Context, tokenID, userID, hash, userAgent, ip string, expires time.Time) (bool, error) {
+func (s *stubStore) RotateRefreshToken(ctx context.Context, tokenID, userID, hash, userAgent, ip string, expires time.Time) (bool, error) {
 	return false, nil
 }
 
-func newTestHandler() *Handler {
+func newTestHandler(store *stubStore) *Handler {
 	cfg := &config.Config{
 		RefreshCookieName:  "refreshToken",
 		RefreshCookiePath:  "/",
 		CORSAllowedOrigins: "http://app.example.com",
 	}
-	svc := service.New(stubStore{}, jwt.NewService("test-secret"), cfg)
+	svc := service.New(store, jwt.NewService("test-secret"), cfg)
 	return New(svc, slog.New(slog.NewTextHandler(io.Discard, nil)))
 }
 
 func TestRefreshAndLogoutRejectForbiddenOrigin(t *testing.T) {
-	h := newTestHandler()
+	h := newTestHandler(&stubStore{})
 
 	for _, tc := range []struct {
 		name    string
@@ -84,7 +93,7 @@ func TestRefreshAndLogoutRejectForbiddenOrigin(t *testing.T) {
 }
 
 func TestRefreshAndLogoutAllowConfiguredOrAbsentOrigin(t *testing.T) {
-	h := newTestHandler()
+	h := newTestHandler(&stubStore{})
 
 	for _, tc := range []struct {
 		name       string
@@ -110,5 +119,23 @@ func TestRefreshAndLogoutAllowConfiguredOrAbsentOrigin(t *testing.T) {
 				t.Fatalf("status = %d, want %d", rec.Code, tc.wantStatus)
 			}
 		})
+	}
+}
+
+func TestLogoutSucceedsWhenRevokeFails(t *testing.T) {
+	h := newTestHandler(&stubStore{findTokenID: "token-1", revokeErr: errors.New("db down")})
+	req := httptest.NewRequest(http.MethodPost, "/auth/logout", nil)
+	req.Header.Set("Origin", "http://app.example.com")
+	req.AddCookie(&http.Cookie{Name: "refreshToken", Value: "raw-token"})
+	rec := httptest.NewRecorder()
+
+	h.Logout(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	cookies := rec.Result().Cookies()
+	if len(cookies) != 1 || cookies[0].MaxAge >= 0 {
+		t.Fatalf("cookie not cleared: %+v", cookies)
 	}
 }
