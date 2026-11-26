@@ -106,6 +106,8 @@ func (h *Handler) Refresh(w http.ResponseWriter, r *http.Request) {
 	resp, err := h.svc.Refresh(r.Context(), w, r)
 	if err != nil {
 		switch {
+		case errors.Is(err, service.ErrForbiddenOrigin):
+			response.ErrorSimple(w, http.StatusForbidden, "Forbidden origin")
 		case errors.Is(err, service.ErrRefreshTokenMissing):
 			response.ErrorSimple(w, http.StatusUnauthorized, "Refresh token missing")
 		case errors.Is(err, service.ErrRefreshTokenInvalid), errors.Is(err, service.ErrRefreshTokenRevoked), errors.Is(err, service.ErrRefreshTokenExpired):
@@ -122,6 +124,11 @@ func (h *Handler) Refresh(w http.ResponseWriter, r *http.Request) {
 // Logout handles POST /auth/logout.
 func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	if err := h.svc.Logout(r.Context(), w, r); err != nil {
+		if errors.Is(err, service.ErrForbiddenOrigin) {
+			response.ErrorSimple(w, http.StatusForbidden, "Forbidden origin")
+			return
+		}
+		// Best effort: the cookie is cleared even when revocation fails.
 		h.log.Error("logout failed", slog.String("error", err.Error()))
 	}
 	response.Success(w, http.StatusOK, nil, "Logout successful")
