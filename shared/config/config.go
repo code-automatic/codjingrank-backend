@@ -58,7 +58,7 @@ var defaults = map[string]string{
 	"REFRESH_COOKIE_SECURE":     "false",
 	"REFRESH_COOKIE_SAMESITE":   "Lax",
 	"REFRESH_COOKIE_DOMAIN":     "",
-	"REFRESH_COOKIE_PATH":       "/auth",
+	"REFRESH_COOKIE_PATH":       "/",
 }
 
 // getEnv returns the value of the environment variable named by key, or the
