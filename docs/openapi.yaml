@@ -9,6 +9,7 @@ info:
     not a delivery promise.
 servers:
 - {url: 'http://localhost:8080', description: Gateway; pending operations require mocks on port4010}
+- {url: 'https://api.codjingrank.io.vn', description: Production Gateway}
 - {url: 'http://localhost:4010', description: Prism mock server}
 tags:
 - {name: Auth, description: Owned by auth_service}
