@@ -6,6 +6,7 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 -- Clean bootstrap for the new product. Legacy Subject/Session/Lesson and
 -- Repository/GitHub tables are intentionally excluded.
 DROP VIEW IF EXISTS leaderboard CASCADE;
+DROP TABLE IF EXISTS audit_logs CASCADE;
 DROP TABLE IF EXISTS ai_review_findings CASCADE;
 DROP TABLE IF EXISTS ai_reviews CASCADE;
 DROP TABLE IF EXISTS daily_challenges CASCADE;
@@ -130,6 +131,18 @@ CREATE TABLE password_resets (
     CONSTRAINT chk_password_resets_expiry CHECK (expires_at > created_at)
 );
 CREATE INDEX idx_password_resets_user ON password_resets(user_id, created_at DESC);
+
+CREATE TABLE audit_logs (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    actor_id uuid REFERENCES users(id) ON DELETE SET NULL,
+    actor_email text,
+    action text NOT NULL,
+    resource_type text,
+    resource_id text,
+    detail jsonb,
+    created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_audit_logs_created ON audit_logs(created_at DESC);
 
 CREATE TABLE packages (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

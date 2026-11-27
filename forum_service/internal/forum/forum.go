@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"innogen-backend/shared/audit"
 	"innogen-backend/shared/middleware"
 	"innogen-backend/shared/response"
 )
@@ -73,6 +75,26 @@ func (s *service) auth(w http.ResponseWriter, r *http.Request, required, admin b
 	}
 	return id, true
 }
+
+// writeAudit records a moderation action without failing the user-facing request.
+func (s *service) writeAudit(ctx context.Context, actorID, action, resourceType, resourceID string, detail any) {
+	var email string
+	if err := s.pool.QueryRow(ctx, `SELECT email FROM users WHERE id=$1`, actorID).Scan(&email); err != nil {
+		email = ""
+	}
+	err := audit.Write(ctx, s.pool, audit.AuditEntry{
+		ActorID:      actorID,
+		ActorEmail:   email,
+		Action:       action,
+		ResourceType: resourceType,
+		ResourceID:   resourceID,
+		Detail:       detail,
+	})
+	if err != nil {
+		slog.Warn("failed to write audit log", "action", action, "error", err.Error())
+	}
+}
+
 func fail(w http.ResponseWriter, err error) {
 	if errors.Is(err, pgx.ErrNoRows) {
 		response.ErrorSimple(w, 404, "Not found")
@@ -633,6 +655,9 @@ func (s *service) removeComment(w http.ResponseWriter, r *http.Request, admin bo
 		response.NoContent(w)
 		return
 	}
+	if !deleted {
+		s.writeAudit(ctx, user, "forum.comment_deleted", "forum_comment", id, map[string]any{"postId": postID})
+	}
 	comment, err := s.comment(ctx, id)
 	if err != nil {
 		fail(w, err)
@@ -671,6 +696,14 @@ func (s *service) moderatePost(w http.ResponseWriter, r *http.Request) {
 	if tag.RowsAffected() == 0 {
 		response.Error(w, 409, "Post is deleted", "POST_DELETED")
 		return
+	}
+	switch {
+	case input.Status == "hidden" && current != "hidden":
+		s.writeAudit(r.Context(), user, "forum.post_hidden", "forum_post", id, map[string]any{"from": current, "to": input.Status})
+	case input.Status == "deleted" && current != "deleted":
+		s.writeAudit(r.Context(), user, "forum.post_deleted", "forum_post", id, map[string]any{"from": current, "to": input.Status})
+	case input.Status == "published" && current != "published":
+		s.writeAudit(r.Context(), user, "forum.post_restored", "forum_post", id, map[string]any{"from": current, "to": input.Status})
 	}
 	post, err := s.post(r.Context(), id, user, true)
 	if err != nil {
