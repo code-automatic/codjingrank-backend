@@ -2668,8 +2668,8 @@ paths:
       description: Users retrieved
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
-      x-owner: auth_service
+      x-implementation-status: implemented-db-tested
+      x-owner: api_gateway
       x-feature: F12
       x-priority: Must
       x-required-role: admin
@@ -2763,8 +2763,8 @@ paths:
       description: User retrieved
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
-      x-owner: auth_service
+      x-implementation-status: implemented-db-tested
+      x-owner: api_gateway
       x-feature: F12
       x-priority: Must
       x-required-role: admin
@@ -2817,8 +2817,8 @@ paths:
         not only stale JWT claims. No password/hash exposure.
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
-      x-owner: auth_service
+      x-implementation-status: implemented-db-tested
+      x-owner: api_gateway
       x-feature: F12
       x-priority: Must
       x-required-role: admin
@@ -5592,7 +5592,7 @@ paths:
       description: Dashboard retrieved
       security:
       - bearerAuth: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented-db-tested
       x-owner: api_gateway
       x-feature: F12
       x-priority: Could
@@ -5630,6 +5630,62 @@ paths:
         '500': {$ref: '#/components/responses/Error500'}
         '502': {$ref: '#/components/responses/Error502'}
         '504': {$ref: '#/components/responses/Error504'}
+  /api/v1/admin/audit-logs:
+    get:
+      operationId: adminListAuditLogs
+      summary: Audit logs retrieved
+      tags:
+      - Admin dashboard
+      description: Lists audit events from user changes and Forum moderation, newest first.
+        Filters combine with AND. The action filter is exact and actorEmail is a case-insensitive search.
+      security:
+      - bearerAuth: []
+      x-implementation-status: implemented-db-tested
+      x-owner: api_gateway
+      x-feature: F12
+      x-priority: Should
+      x-required-role: admin
+      parameters:
+      - name: page
+        in: query
+        schema: {type: integer, minimum: 1, default: 1}
+      - name: size
+        in: query
+        schema: {type: integer, minimum: 1, maximum: 100, default: 20}
+      - name: action
+        in: query
+        schema: {type: string, example: user.locked}
+      - name: actorEmail
+        in: query
+        schema: {type: string, example: admin@example.com}
+      responses:
+        '200':
+          description: Audit logs retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [status, code, message, data]
+                properties:
+                  status: {type: string, enum: [success]}
+                  code: {type: integer, enum: [200]}
+                  message: {type: string, example: Audit logs retrieved}
+                  data:
+                    type: object
+                    additionalProperties: false
+                    required: [items, page, size, total]
+                    properties:
+                      items:
+                        type: array
+                        items: {$ref: '#/components/schemas/AdminAuditLog'}
+                      page: {type: integer, minimum: 1}
+                      size: {type: integer, minimum: 1, maximum: 100}
+                      total: {type: integer, minimum: 0}
+        '400': {$ref: '#/components/responses/Error400'}
+        '401': {$ref: '#/components/responses/Error401'}
+        '403': {$ref: '#/components/responses/Error403'}
+        '500': {$ref: '#/components/responses/Error500'}
   /api/v1/admin/daily-challenges:
     get:
       operationId: adminListDaily
@@ -7263,8 +7319,22 @@ components:
           - admin
           example: student
         isActive: {type: boolean, example: true}
+        fullName: {type: string, nullable: true, maxLength: 200, description: Null or blank clears the name}
       additionalProperties: false
       minProperties: 1
+    AdminAuditLog:
+      type: object
+      additionalProperties: false
+      required: [id, actorId, actorEmail, action, resourceType, resourceId, detail, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        actorId: {type: string, format: uuid, nullable: true}
+        actorEmail: {type: string, format: email, nullable: true}
+        action: {type: string, example: user.locked}
+        resourceType: {type: string, nullable: true, example: user}
+        resourceId: {type: string, nullable: true}
+        detail: {type: object, nullable: true, additionalProperties: true}
+        createdAt: {type: string, format: date-time}
     AdminPost:
       type: object
       properties:
