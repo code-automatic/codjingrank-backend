@@ -100,6 +100,8 @@ func RegisterProxyRoutes(mux *http.ServeMux, proxies *ProxySet, log *slog.Logger
 	mux.Handle("POST /api/v1/auth/register", stripV1(stripUserHeaders(proxies.AuthPublic)))
 	mux.Handle("POST /api/v1/auth/refresh", stripV1(stripUserHeaders(proxies.AuthPublic)))
 	mux.Handle("POST /api/v1/auth/logout", stripV1(stripUserHeaders(proxies.AuthPublic)))
+	mux.Handle("POST /api/v1/auth/forgot-password", stripV1(stripUserHeaders(proxies.AuthPublic)))
+	mux.Handle("POST /api/v1/auth/reset-password", stripV1(stripUserHeaders(proxies.AuthPublic)))
 	mux.Handle("GET /api/v1/users/me", authMW(stripAllAuth(rewritePath("/auth/me", proxies.Auth))))
 
 	// Health checks proxied to backend services

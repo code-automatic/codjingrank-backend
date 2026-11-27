@@ -131,6 +131,96 @@ func (r *UserRepository) RevokeAllUserRefreshTokens(ctx context.Context, userID 
 	return nil
 }
 
+// CreatePasswordReset invalidates any unused reset codes for the user and
+// stores a new hashed OTP with its expiry.
+func (r *UserRepository) CreatePasswordReset(ctx context.Context, userID, otpHash string, expiresAt time.Time) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("repository.CreatePasswordReset: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	if _, err = tx.Exec(ctx, `UPDATE password_resets SET used_at=CURRENT_TIMESTAMP WHERE user_id=$1 AND used_at IS NULL`, userID); err != nil {
+		return fmt.Errorf("repository.CreatePasswordReset invalidate: %w", err)
+	}
+	if _, err = tx.Exec(ctx, `INSERT INTO password_resets (user_id, otp_hash, expires_at) VALUES ($1,$2,$3)`, userID, otpHash, expiresAt); err != nil {
+		return fmt.Errorf("repository.CreatePasswordReset insert: %w", err)
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return fmt.Errorf("repository.CreatePasswordReset commit: %w", err)
+	}
+	return nil
+}
+
+// FindLatestPasswordReset returns the newest unused reset code for the user.
+// Expiry and attempt checks are left to the service layer.
+func (r *UserRepository) FindLatestPasswordReset(ctx context.Context, userID string) (*models.PasswordReset, error) {
+	pr := &models.PasswordReset{}
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, user_id, otp_hash, expires_at, used_at, attempts, created_at
+         FROM password_resets WHERE user_id=$1 AND used_at IS NULL
+         ORDER BY created_at DESC LIMIT 1`, userID,
+	).Scan(&pr.ID, &pr.UserID, &pr.OTPHash, &pr.ExpiresAt, &pr.UsedAt, &pr.Attempts, &pr.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("repository.FindLatestPasswordReset: %w", err)
+	}
+	return pr, nil
+}
+
+// IncrementPasswordResetAttempts atomically increments the failed-attempt
+// counter and returns the new value.
+func (r *UserRepository) IncrementPasswordResetAttempts(ctx context.Context, id string) (int, error) {
+	var attempts int
+	err := r.pool.QueryRow(ctx,
+		`UPDATE password_resets SET attempts=attempts+1 WHERE id=$1 RETURNING attempts`, id,
+	).Scan(&attempts)
+	if err != nil {
+		return 0, fmt.Errorf("repository.IncrementPasswordResetAttempts: %w", err)
+	}
+	return attempts, nil
+}
+
+// InvalidatePasswordReset marks a reset code as no longer usable.
+func (r *UserRepository) InvalidatePasswordReset(ctx context.Context, id string) error {
+	_, err := r.pool.Exec(ctx, `UPDATE password_resets SET used_at=CURRENT_TIMESTAMP WHERE id=$1 AND used_at IS NULL`, id)
+	if err != nil {
+		return fmt.Errorf("repository.InvalidatePasswordReset: %w", err)
+	}
+	return nil
+}
+
+// CompletePasswordReset consumes the reset code, updates the user's password
+// hash, and revokes every active refresh token in a single transaction.
+// It returns false when the code was already consumed by a concurrent request.
+func (r *UserRepository) CompletePasswordReset(ctx context.Context, resetID, userID, passwordHash string) (bool, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return false, fmt.Errorf("repository.CompletePasswordReset: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	result, err := tx.Exec(ctx, `UPDATE password_resets SET used_at=CURRENT_TIMESTAMP WHERE id=$1 AND user_id=$2 AND used_at IS NULL`, resetID, userID)
+	if err != nil {
+		return false, fmt.Errorf("repository.CompletePasswordReset consume: %w", err)
+	}
+	if result.RowsAffected() != 1 {
+		return false, nil
+	}
+	if _, err = tx.Exec(ctx, `UPDATE users SET password_hash=$1 WHERE id=$2`, passwordHash, userID); err != nil {
+		return false, fmt.Errorf("repository.CompletePasswordReset password: %w", err)
+	}
+	if _, err = tx.Exec(ctx, `UPDATE refresh_tokens SET revoked_at=CURRENT_TIMESTAMP WHERE user_id=$1 AND revoked_at IS NULL`, userID); err != nil {
+		return false, fmt.Errorf("repository.CompletePasswordReset revoke: %w", err)
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return false, fmt.Errorf("repository.CompletePasswordReset commit: %w", err)
+	}
+	return true, nil
+}
+
 // RotateRefreshToken atomically consumes one active token and persists its successor.
 func (r *UserRepository) RotateRefreshToken(ctx context.Context, tokenID, userID, hash, userAgent, ip string, expires time.Time) (bool, error) {
 	tx, err := r.pool.Begin(ctx)

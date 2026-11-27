@@ -102,6 +102,8 @@ func TestV1AuthPublicFacade(t *testing.T) {
 		{"/api/v1/auth/register", "/auth/register"},
 		{"/api/v1/auth/refresh", "/auth/refresh"},
 		{"/api/v1/auth/logout", "/auth/logout"},
+		{"/api/v1/auth/forgot-password", "/auth/forgot-password"},
+		{"/api/v1/auth/reset-password", "/auth/reset-password"},
 	} {
 		gotPath, gotAuth, gotUserID = "", "", ""
 		req := httptest.NewRequest("POST", tc.path, nil)

@@ -13,5 +13,7 @@ func Register(mux *http.ServeMux, h *handler.Handler) {
 	mux.HandleFunc("POST /auth/refresh", h.Refresh)
 	mux.HandleFunc("POST /auth/logout", h.Logout)
 	mux.HandleFunc("POST /auth/register", h.Register)
+	mux.HandleFunc("POST /auth/forgot-password", h.ForgotPassword)
+	mux.HandleFunc("POST /auth/reset-password", h.ResetPassword)
 	mux.Handle("GET /auth/me", middleware.XUserID()(http.HandlerFunc(h.CurrentUser)))
 }

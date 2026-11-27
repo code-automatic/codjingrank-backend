@@ -46,6 +46,41 @@ func (r *RegisterRequest) Validate() string {
 	return ""
 }
 
+// ForgotPasswordRequest is the JSON body for POST /auth/forgot-password.
+type ForgotPasswordRequest struct {
+	Email string `json:"email"`
+}
+
+// Validate returns an error message string if invalid.
+func (r *ForgotPasswordRequest) Validate() string {
+	if strings.TrimSpace(r.Email) == "" {
+		return "Email is required"
+	}
+	return ""
+}
+
+// ResetPasswordRequest is the JSON body for POST /auth/reset-password.
+type ResetPasswordRequest struct {
+	Email       string `json:"email"`
+	OTP         string `json:"otp"`
+	NewPassword string `json:"newPassword"`
+}
+
+// Validate returns an error message string if invalid. It mirrors Register's
+// minimum password policy.
+func (r *ResetPasswordRequest) Validate() string {
+	if strings.TrimSpace(r.Email) == "" {
+		return "Email is required"
+	}
+	if strings.TrimSpace(r.OTP) == "" {
+		return "OTP is required"
+	}
+	if len(r.NewPassword) < 6 {
+		return "Password must be at least 6 characters"
+	}
+	return ""
+}
+
 // LoginResponse is the JSON body returned by POST /auth/login.
 type LoginResponse struct {
 	AccessToken string       `json:"accessToken"`

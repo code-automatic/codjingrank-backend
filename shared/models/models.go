@@ -21,6 +21,19 @@ type User struct {
 	UpdatedAt time.Time `json:"updatedAt"`
 }
 
+// PasswordReset represents a row in the password_resets table. OTPHash holds
+// the SHA-256 hash of the emailed one-time code; the plaintext code is never
+// persisted.
+type PasswordReset struct {
+	ID        string     `json:"id"`
+	UserID    string     `json:"userId"`
+	OTPHash   string     `json:"-"`
+	ExpiresAt time.Time  `json:"expiresAt"`
+	UsedAt    *time.Time `json:"usedAt,omitempty"`
+	Attempts  int        `json:"attempts"`
+	CreatedAt time.Time  `json:"createdAt"`
+}
+
 // Problem represents a row in the problems table.
 type Problem struct {
 	ID               string          `json:"id"`
