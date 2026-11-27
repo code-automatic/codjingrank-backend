@@ -152,13 +152,13 @@ func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.svc.ResetPassword(r.Context(), req.Email, req.OTP, req.NewPassword)
+	err := h.svc.ResetPassword(r.Context(), w, req.Email, req.OTP, req.NewPassword)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrInvalidInput):
 			response.ErrorSimple(w, http.StatusBadRequest, "Invalid request body")
 		case errors.Is(err, service.ErrInvalidResetCode):
-			response.Error(w, http.StatusBadRequest, "Invalid or expired reset code", "INVALID_OR_RESET_EXPIRED")
+			response.Error(w, http.StatusBadRequest, "Reset token is invalid or expired", "RESET_TOKEN_INVALID")
 		default:
 			h.log.Error("reset password failed", slog.String("error", err.Error()))
 			response.ErrorSimple(w, http.StatusInternalServerError, "Internal server error")

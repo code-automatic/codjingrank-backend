@@ -22,8 +22,8 @@ type User struct {
 }
 
 // PasswordReset represents a row in the password_resets table. OTPHash holds
-// the SHA-256 hash of the emailed one-time code; the plaintext code is never
-// persisted.
+// the keyed HMAC-SHA256 digest of the emailed one-time code; the plaintext code
+// is never persisted.
 type PasswordReset struct {
 	ID        string     `json:"id"`
 	UserID    string     `json:"userId"`

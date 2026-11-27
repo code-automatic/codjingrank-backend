@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -73,6 +74,10 @@ func (s *stubStore) FindLatestPasswordReset(ctx context.Context, userID string) 
 	return s.reset, nil
 }
 
+func (s *stubStore) LatestPasswordResetCreatedAt(ctx context.Context, userID string) (time.Time, bool, error) {
+	return time.Time{}, false, nil
+}
+
 func (s *stubStore) IncrementPasswordResetAttempts(ctx context.Context, id string) (int, error) {
 	return 0, nil
 }
@@ -88,6 +93,8 @@ func (s *stubStore) CompletePasswordReset(ctx context.Context, resetID, userID, 
 
 func newTestHandler(store *stubStore) *Handler {
 	cfg := &config.Config{
+		JWTSecret:                "test-secret",
+		OTPSecret:                "otp-test-secret",
 		RefreshCookieName:        "refreshToken",
 		RefreshCookiePath:        "/",
 		CORSAllowedOrigins:       "http://app.example.com",
@@ -173,9 +180,11 @@ func TestLogoutSucceedsWhenRevokeFails(t *testing.T) {
 	}
 }
 
-func sha256Hex(s string) string {
-	sum := sha256.Sum256([]byte(s))
-	return hex.EncodeToString(sum[:])
+// otpHash mirrors the service's keyed OTP digest for the test config.
+func otpHash(otp string) string {
+	mac := hmac.New(sha256.New, []byte("otp-test-secret"))
+	mac.Write([]byte(otp))
+	return hex.EncodeToString(mac.Sum(nil))
 }
 
 func TestForgotPasswordHandlerAlwaysReturns202(t *testing.T) {
@@ -206,11 +215,11 @@ func TestForgotPasswordHandlerAlwaysReturns202(t *testing.T) {
 func TestResetPasswordHandlerSuccessIs204(t *testing.T) {
 	user := &models.User{ID: "user-1", Email: "user@example.com"}
 	store := &stubStore{user: user, reset: &models.PasswordReset{
-		ID: "reset-1", UserID: user.ID, OTPHash: sha256Hex("123456"),
+		ID: "reset-1", UserID: user.ID, OTPHash: otpHash("123456"),
 		ExpiresAt: time.Now().Add(10 * time.Minute),
 	}}
 	h := newTestHandler(store)
-	req := httptest.NewRequest(http.MethodPost, "/auth/reset-password", strings.NewReader(`{"email":"user@example.com","otp":"123456","newPassword":"newpassword"}`))
+	req := httptest.NewRequest(http.MethodPost, "/auth/reset-password", strings.NewReader(`{"email":"user@example.com","otp":"123456","newPassword":"newpassword1"}`))
 	rec := httptest.NewRecorder()
 
 	h.ResetPassword(rec, req)
@@ -229,11 +238,11 @@ func TestResetPasswordHandlerSuccessIs204(t *testing.T) {
 func TestResetPasswordHandlerInvalidOTPIs400(t *testing.T) {
 	user := &models.User{ID: "user-1", Email: "user@example.com"}
 	store := &stubStore{user: user, reset: &models.PasswordReset{
-		ID: "reset-1", UserID: user.ID, OTPHash: sha256Hex("123456"),
+		ID: "reset-1", UserID: user.ID, OTPHash: otpHash("123456"),
 		ExpiresAt: time.Now().Add(10 * time.Minute),
 	}}
 	h := newTestHandler(store)
-	req := httptest.NewRequest(http.MethodPost, "/auth/reset-password", strings.NewReader(`{"email":"user@example.com","otp":"000000","newPassword":"newpassword"}`))
+	req := httptest.NewRequest(http.MethodPost, "/auth/reset-password", strings.NewReader(`{"email":"user@example.com","otp":"000000","newPassword":"newpassword1"}`))
 	rec := httptest.NewRecorder()
 
 	h.ResetPassword(rec, req)
@@ -241,8 +250,8 @@ func TestResetPasswordHandlerInvalidOTPIs400(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400", rec.Code)
 	}
-	if !strings.Contains(rec.Body.String(), "INVALID_OR_RESET_EXPIRED") {
-		t.Fatalf("body = %s, want INVALID_OR_RESET_EXPIRED", rec.Body.String())
+	if !strings.Contains(rec.Body.String(), "RESET_TOKEN_INVALID") {
+		t.Fatalf("body = %s, want RESET_TOKEN_INVALID", rec.Body.String())
 	}
 	if store.completed {
 		t.Fatal("password changed with invalid OTP")

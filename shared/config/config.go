@@ -36,6 +36,7 @@ type Config struct {
 	SMTPUser                 string
 	SMTPPass                 string
 	SMTPFrom                 string
+	OTPSecret                string
 	PasswordResetTTLMinutes  int
 	PasswordResetMaxAttempts int
 }
@@ -71,6 +72,7 @@ var defaults = map[string]string{
 	"SMTP_USER":                   "",
 	"SMTP_PASS":                   "",
 	"SMTP_FROM":                   "",
+	"OTP_SECRET":                  "",
 	"PASSWORD_RESET_TTL_MINUTES":  "30",
 	"PASSWORD_RESET_MAX_ATTEMPTS": "5",
 }
@@ -117,6 +119,7 @@ func Load() *Config {
 		SMTPUser:                 getEnv("SMTP_USER"),
 		SMTPPass:                 getEnv("SMTP_PASS"),
 		SMTPFrom:                 getEnv("SMTP_FROM"),
+		OTPSecret:                getEnv("OTP_SECRET"),
 		PasswordResetTTLMinutes:  atoi(getEnv("PASSWORD_RESET_TTL_MINUTES")),
 		PasswordResetMaxAttempts: atoi(getEnv("PASSWORD_RESET_MAX_ATTEMPTS")),
 	}

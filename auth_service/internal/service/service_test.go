@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -27,6 +28,10 @@ type fakeStore struct {
 
 	reset    *models.PasswordReset
 	resetErr error
+
+	latestResetAt    time.Time
+	latestResetFound bool
+	latestResetErr   error
 
 	createdResetUserID string
 	createdOTPHash     string
@@ -92,6 +97,10 @@ func (f *fakeStore) CreatePasswordReset(ctx context.Context, userID, otpHash str
 
 func (f *fakeStore) FindLatestPasswordReset(ctx context.Context, userID string) (*models.PasswordReset, error) {
 	return f.reset, f.resetErr
+}
+
+func (f *fakeStore) LatestPasswordResetCreatedAt(ctx context.Context, userID string) (time.Time, bool, error) {
+	return f.latestResetAt, f.latestResetFound, f.latestResetErr
 }
 
 func (f *fakeStore) IncrementPasswordResetAttempts(ctx context.Context, id string) (int, error) {
@@ -269,6 +278,9 @@ func TestClearRefreshCookieOmitsEmptyDomain(t *testing.T) {
 
 func newPasswordResetConfig() *config.Config {
 	return &config.Config{
+		OTPSecret:                "otp-test-secret",
+		RefreshCookieName:        "refreshToken",
+		RefreshCookiePath:        "/",
 		PasswordResetTTLMinutes:  30,
 		PasswordResetMaxAttempts: 5,
 	}
@@ -318,7 +330,7 @@ func TestForgotPasswordStoresHashedOTPAndSendsEmail(t *testing.T) {
 	if store.createdOTPHash == mailer.otp {
 		t.Fatal("OTP stored in plaintext")
 	}
-	if store.createdOTPHash != hashToken(mailer.otp) {
+	if store.createdOTPHash != svc.hashOTP(mailer.otp) {
 		t.Fatal("stored hash does not match emailed OTP")
 	}
 	if mailer.ttl != 30*time.Minute {
@@ -343,42 +355,106 @@ func TestForgotPasswordSurvivesMailFailure(t *testing.T) {
 	}
 }
 
-func TestResetPasswordSuccessUpdatesHashAndRevokesTokens(t *testing.T) {
+func TestForgotPasswordThrottlesRecentReset(t *testing.T) {
+	user := &models.User{ID: "user-1", Email: "user@example.com"}
+	store := &fakeStore{
+		user:             user,
+		latestResetAt:    time.Now().Add(-30 * time.Second),
+		latestResetFound: true,
+	}
+	mailer := &fakeMailer{}
+	svc := newTestService(t, store, newPasswordResetConfig()).SetMailer(mailer)
+
+	if err := svc.ForgotPassword(context.Background(), user.Email); err != nil {
+		t.Fatalf("forgot password: %v", err)
+	}
+	if store.createdResetUserID != "" {
+		t.Fatal("new OTP created inside the cooldown window")
+	}
+	if mailer.sent {
+		t.Fatal("email sent inside the cooldown window")
+	}
+}
+
+func TestForgotPasswordAllowsRequestAfterCooldown(t *testing.T) {
+	user := &models.User{ID: "user-1", Email: "user@example.com"}
+	store := &fakeStore{
+		user:             user,
+		latestResetAt:    time.Now().Add(-2 * time.Minute),
+		latestResetFound: true,
+	}
+	mailer := &fakeMailer{}
+	svc := newTestService(t, store, newPasswordResetConfig()).SetMailer(mailer)
+
+	if err := svc.ForgotPassword(context.Background(), user.Email); err != nil {
+		t.Fatalf("forgot password: %v", err)
+	}
+	if store.createdResetUserID != user.ID {
+		t.Fatal("OTP not reissued after cooldown")
+	}
+	if !mailer.sent {
+		t.Fatal("email not sent after cooldown")
+	}
+}
+
+// newResetFixture builds a user plus an unconsumed reset code hashed with the
+// service's OTP key, then returns a wired fake store and service.
+func newResetFixture(t *testing.T) (*fakeStore, *AuthService, *models.User, *models.PasswordReset) {
+	t.Helper()
+	hashingSvc := newTestService(t, &fakeStore{}, newPasswordResetConfig())
 	user := &models.User{ID: "user-1", Email: "user@example.com"}
 	reset := &models.PasswordReset{
-		ID: "reset-1", UserID: user.ID, OTPHash: hashToken("123456"),
+		ID: "reset-1", UserID: user.ID, OTPHash: hashingSvc.hashOTP("123456"),
 		ExpiresAt: time.Now().Add(10 * time.Minute),
 	}
-	store := &fakeStore{user: user, reset: reset, completedOK: true}
-	svc := newTestService(t, store, newPasswordResetConfig())
+	store := &fakeStore{user: user, reset: reset}
+	return store, newTestService(t, store, newPasswordResetConfig()), user, reset
+}
 
-	if err := svc.ResetPassword(context.Background(), user.Email, "123456", "newpassword"); err != nil {
+func TestResetPasswordSuccessCompletesResetAndHashesPassword(t *testing.T) {
+	store, svc, user, reset := newResetFixture(t)
+	store.completedOK = true
+	rec := httptest.NewRecorder()
+
+	if err := svc.ResetPassword(context.Background(), rec, user.Email, "123456", "newpassword1"); err != nil {
 		t.Fatalf("reset password: %v", err)
 	}
 	if !store.completed {
-		t.Fatal("password reset was not persisted")
+		t.Fatal("CompletePasswordReset was not called")
 	}
 	if store.completedResetID != reset.ID || store.completedUserID != user.ID {
 		t.Fatalf("completed wrong row: %+v", store)
 	}
-	if err := bcrypt.CompareHashAndPassword([]byte(store.completedPassword), []byte("newpassword")); err != nil {
+	if err := bcrypt.CompareHashAndPassword([]byte(store.completedPassword), []byte("newpassword1")); err != nil {
 		t.Fatalf("new password not bcrypt hashed: %v", err)
 	}
 	if reset.Attempts != 0 {
 		t.Fatalf("attempts changed on success: %d", reset.Attempts)
 	}
+	cookies := rec.Result().Cookies()
+	if len(cookies) != 1 || cookies[0].MaxAge >= 0 {
+		t.Fatalf("refresh cookie not cleared: %+v", cookies)
+	}
+}
+
+func TestResetPasswordRejectedWhenResetAlreadyCompleted(t *testing.T) {
+	store, svc, user, _ := newResetFixture(t)
+	store.completedOK = false
+
+	err := svc.ResetPassword(context.Background(), httptest.NewRecorder(), user.Email, "123456", "newpassword1")
+	if !errors.Is(err, ErrInvalidResetCode) {
+		t.Fatalf("err = %v, want ErrInvalidResetCode", err)
+	}
+	if !store.completed {
+		t.Fatal("CompletePasswordReset was not attempted")
+	}
 }
 
 func TestResetPasswordWrongOTPIncrementsAttempts(t *testing.T) {
-	user := &models.User{ID: "user-1", Email: "user@example.com"}
-	reset := &models.PasswordReset{
-		ID: "reset-1", UserID: user.ID, OTPHash: hashToken("123456"),
-		ExpiresAt: time.Now().Add(10 * time.Minute),
-	}
-	store := &fakeStore{user: user, reset: reset, completedOK: true}
-	svc := newTestService(t, store, newPasswordResetConfig())
+	store, svc, user, reset := newResetFixture(t)
+	store.completedOK = true
 
-	err := svc.ResetPassword(context.Background(), user.Email, "000000", "newpassword")
+	err := svc.ResetPassword(context.Background(), httptest.NewRecorder(), user.Email, "000000", "newpassword1")
 	if !errors.Is(err, ErrInvalidResetCode) {
 		t.Fatalf("err = %v, want ErrInvalidResetCode", err)
 	}
@@ -394,15 +470,11 @@ func TestResetPasswordWrongOTPIncrementsAttempts(t *testing.T) {
 }
 
 func TestResetPasswordLocksAfterMaxAttempts(t *testing.T) {
-	user := &models.User{ID: "user-1", Email: "user@example.com"}
-	reset := &models.PasswordReset{
-		ID: "reset-1", UserID: user.ID, OTPHash: hashToken("123456"),
-		ExpiresAt: time.Now().Add(10 * time.Minute), Attempts: 4,
-	}
-	store := &fakeStore{user: user, reset: reset, completedOK: true}
-	svc := newTestService(t, store, newPasswordResetConfig())
+	store, svc, user, reset := newResetFixture(t)
+	store.completedOK = true
+	reset.Attempts = 4
 
-	err := svc.ResetPassword(context.Background(), user.Email, "000000", "newpassword")
+	err := svc.ResetPassword(context.Background(), httptest.NewRecorder(), user.Email, "000000", "newpassword1")
 	if !errors.Is(err, ErrInvalidResetCode) {
 		t.Fatalf("err = %v, want ErrInvalidResetCode", err)
 	}
@@ -418,15 +490,11 @@ func TestResetPasswordLocksAfterMaxAttempts(t *testing.T) {
 }
 
 func TestResetPasswordRejectsExpiredCode(t *testing.T) {
-	user := &models.User{ID: "user-1", Email: "user@example.com"}
-	reset := &models.PasswordReset{
-		ID: "reset-1", UserID: user.ID, OTPHash: hashToken("123456"),
-		ExpiresAt: time.Now().Add(-time.Minute),
-	}
-	store := &fakeStore{user: user, reset: reset, completedOK: true}
-	svc := newTestService(t, store, newPasswordResetConfig())
+	store, svc, user, reset := newResetFixture(t)
+	store.completedOK = true
+	reset.ExpiresAt = time.Now().Add(-time.Minute)
 
-	err := svc.ResetPassword(context.Background(), user.Email, "123456", "newpassword")
+	err := svc.ResetPassword(context.Background(), httptest.NewRecorder(), user.Email, "123456", "newpassword1")
 	if !errors.Is(err, ErrInvalidResetCode) {
 		t.Fatalf("err = %v, want ErrInvalidResetCode", err)
 	}
@@ -443,7 +511,7 @@ func TestResetPasswordRejectsMissingOrUsedCode(t *testing.T) {
 	store := &fakeStore{user: user}
 	svc := newTestService(t, store, newPasswordResetConfig())
 
-	if err := svc.ResetPassword(context.Background(), user.Email, "123456", "newpassword"); !errors.Is(err, ErrInvalidResetCode) {
+	if err := svc.ResetPassword(context.Background(), httptest.NewRecorder(), user.Email, "123456", "newpassword1"); !errors.Is(err, ErrInvalidResetCode) {
 		t.Fatalf("err = %v, want ErrInvalidResetCode", err)
 	}
 }
@@ -452,21 +520,17 @@ func TestResetPasswordRejectsUnknownEmail(t *testing.T) {
 	store := &fakeStore{}
 	svc := newTestService(t, store, newPasswordResetConfig())
 
-	if err := svc.ResetPassword(context.Background(), "missing@example.com", "123456", "newpassword"); !errors.Is(err, ErrInvalidResetCode) {
+	if err := svc.ResetPassword(context.Background(), httptest.NewRecorder(), "missing@example.com", "123456", "newpassword1"); !errors.Is(err, ErrInvalidResetCode) {
 		t.Fatalf("err = %v, want ErrInvalidResetCode", err)
 	}
 }
 
 func TestResetPasswordRejectsAttemptsAtMax(t *testing.T) {
-	user := &models.User{ID: "user-1", Email: "user@example.com"}
-	reset := &models.PasswordReset{
-		ID: "reset-1", UserID: user.ID, OTPHash: hashToken("123456"),
-		ExpiresAt: time.Now().Add(10 * time.Minute), Attempts: 5,
-	}
-	store := &fakeStore{user: user, reset: reset, completedOK: true}
-	svc := newTestService(t, store, newPasswordResetConfig())
+	store, svc, user, reset := newResetFixture(t)
+	store.completedOK = true
+	reset.Attempts = 5
 
-	if err := svc.ResetPassword(context.Background(), user.Email, "123456", "newpassword"); !errors.Is(err, ErrInvalidResetCode) {
+	if err := svc.ResetPassword(context.Background(), httptest.NewRecorder(), user.Email, "123456", "newpassword1"); !errors.Is(err, ErrInvalidResetCode) {
 		t.Fatalf("err = %v, want ErrInvalidResetCode", err)
 	}
 	if reset.Attempts != 5 {
@@ -477,15 +541,38 @@ func TestResetPasswordRejectsAttemptsAtMax(t *testing.T) {
 	}
 }
 
-func TestResetPasswordRejectsShortPassword(t *testing.T) {
-	user := &models.User{ID: "user-1", Email: "user@example.com"}
-	store := &fakeStore{user: user}
-	svc := newTestService(t, store, newPasswordResetConfig())
+func TestResetPasswordEnforcesPasswordPolicy(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		password string
+		wantErr  bool
+	}{
+		{name: "too short", password: "12345", wantErr: true},
+		{name: "missing digit", password: "abcdefgh", wantErr: true},
+		{name: "missing letter", password: "12345678", wantErr: true},
+		{name: "too many bytes", password: strings.Repeat("a", 72) + "1", wantErr: true},
+		{name: "eight bytes allowed", password: "abcd1234"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			store, svc, user, _ := newResetFixture(t)
+			store.completedOK = true
 
-	if err := svc.ResetPassword(context.Background(), user.Email, "123456", "12345"); !errors.Is(err, ErrInvalidInput) {
-		t.Fatalf("err = %v, want ErrInvalidInput", err)
-	}
-	if store.completed {
-		t.Fatal("short password accepted")
+			err := svc.ResetPassword(context.Background(), httptest.NewRecorder(), user.Email, "123456", tc.password)
+			if tc.wantErr {
+				if !errors.Is(err, ErrInvalidInput) {
+					t.Fatalf("err = %v, want ErrInvalidInput", err)
+				}
+				if store.completed {
+					t.Fatal("invalid password reached CompletePasswordReset")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("reset password: %v", err)
+			}
+			if !store.completed {
+				t.Fatal("valid password was not persisted")
+			}
+		})
 	}
 }

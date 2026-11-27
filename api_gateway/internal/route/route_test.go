@@ -29,6 +29,7 @@ func TestProxySurfaceAfterLegacyRemoval(t *testing.T) {
 	}
 	for _, route := range []struct{ method, path string }{
 		{"POST", "/auth/login"}, {"POST", "/auth/register"}, {"POST", "/auth/refresh"}, {"POST", "/auth/logout"},
+		{"POST", "/auth/forgot-password"}, {"POST", "/auth/reset-password"},
 		{"GET", "/auth/me"}, {"POST", "/run"}, {"POST", "/submit"}, {"GET", "/submissions/id"}, {"GET", "/me/submissions"},
 	} {
 		r := httptest.NewRequest(route.method, route.path, nil)

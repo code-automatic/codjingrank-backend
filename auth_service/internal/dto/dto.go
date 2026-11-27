@@ -75,8 +75,30 @@ func (r *ResetPasswordRequest) Validate() string {
 	if strings.TrimSpace(r.OTP) == "" {
 		return "OTP is required"
 	}
-	if len(r.NewPassword) < 6 {
-		return "Password must be at least 6 characters"
+	return ValidatePasswordPolicy(r.NewPassword)
+}
+
+// ValidatePasswordPolicy enforces the shared password contract:
+// 8-72 UTF-8 bytes, at least one ASCII letter and one digit. The byte bound
+// keeps bcrypt from silently truncating (or erroring on) long inputs.
+func ValidatePasswordPolicy(password string) string {
+	if len(password) < 8 {
+		return "Password must be at least 8 characters"
+	}
+	if len(password) > 72 {
+		return "Password must be at most 72 bytes"
+	}
+	var hasLetter, hasDigit bool
+	for _, r := range password {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z':
+			hasLetter = true
+		case r >= '0' && r <= '9':
+			hasDigit = true
+		}
+	}
+	if !hasLetter || !hasDigit {
+		return "Password must contain at least one letter and one digit"
 	}
 	return ""
 }

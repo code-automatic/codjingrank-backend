@@ -152,6 +152,23 @@ func (r *UserRepository) CreatePasswordReset(ctx context.Context, userID, otpHas
 	return nil
 }
 
+// LatestPasswordResetCreatedAt returns the creation time of the newest reset
+// row for the user, used (or not), for issuance throttling. The bool is false
+// when the user has no reset rows yet.
+func (r *UserRepository) LatestPasswordResetCreatedAt(ctx context.Context, userID string) (time.Time, bool, error) {
+	var createdAt time.Time
+	err := r.pool.QueryRow(ctx,
+		`SELECT created_at FROM password_resets WHERE user_id=$1 ORDER BY created_at DESC LIMIT 1`, userID,
+	).Scan(&createdAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return time.Time{}, false, nil
+	}
+	if err != nil {
+		return time.Time{}, false, fmt.Errorf("repository.LatestPasswordResetCreatedAt: %w", err)
+	}
+	return createdAt, true, nil
+}
+
 // FindLatestPasswordReset returns the newest unused reset code for the user.
 // Expiry and attempt checks are left to the service layer.
 func (r *UserRepository) FindLatestPasswordReset(ctx context.Context, userID string) (*models.PasswordReset, error) {

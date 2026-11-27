@@ -30,8 +30,8 @@ The complete machine-readable contract is [`openapi_fe.yaml`](openapi_fe.yaml) f
 | POST | `/auth/login` | Public | `accessToken`, `user`; 200 |
 | POST | `/auth/refresh` | Refresh cookie | Rotated `accessToken`, `user`; 200 |
 | POST | `/auth/logout` | Optional refresh cookie | 204 and cleared cookie |
-| POST | `/auth/forgot-password` | Public | 202, always generic; Should/schema extension |
-| POST | `/auth/reset-password` | Public | 204; Should/schema extension |
+| POST | `/auth/forgot-password` | Public | 202, always generic; emailed six-digit OTP |
+| POST | `/auth/reset-password` | Public | 204; `{email, otp, newPassword}`; clears refresh cookie |
 | GET | `/users/me` | Bearer | Current `user` |
 | PATCH | `/users/me` | Bearer | Updated `user`; Should; schema-backed avatar/bio, Go integration pending |
 | PUT | `/users/me/password` | Bearer | 204; revokes refresh tokens |

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
@@ -50,6 +51,7 @@ type UserStore interface {
 	RotateRefreshToken(ctx context.Context, tokenID, userID, hash, userAgent, ip string, expires time.Time) (bool, error)
 	RevokeAllUserRefreshTokens(ctx context.Context, userID string) error
 	CreatePasswordReset(ctx context.Context, userID, otpHash string, expiresAt time.Time) error
+	LatestPasswordResetCreatedAt(ctx context.Context, userID string) (time.Time, bool, error)
 	FindLatestPasswordReset(ctx context.Context, userID string) (*models.PasswordReset, error)
 	IncrementPasswordResetAttempts(ctx context.Context, id string) (int, error)
 	InvalidatePasswordReset(ctx context.Context, id string) error
@@ -377,12 +379,22 @@ func (s *AuthService) ForgotPassword(ctx context.Context, email string) error {
 		return nil
 	}
 
+	// Throttle repeated requests: keep one OTP per cooldown window and stay
+	// silent so the response shape never changes.
+	latest, found, err := s.repo.LatestPasswordResetCreatedAt(ctx, user.ID)
+	if err != nil {
+		return err
+	}
+	if found && time.Since(latest) < passwordResetCooldown {
+		return nil
+	}
+
 	otp, err := generateOTP()
 	if err != nil {
 		return fmt.Errorf("failed to generate reset code: %w", err)
 	}
 	ttl := s.passwordResetTTL()
-	if err := s.repo.CreatePasswordReset(ctx, user.ID, hashToken(otp), time.Now().Add(ttl)); err != nil {
+	if err := s.repo.CreatePasswordReset(ctx, user.ID, s.hashOTP(otp), time.Now().Add(ttl)); err != nil {
 		return err
 	}
 
@@ -396,9 +408,12 @@ func (s *AuthService) ForgotPassword(ctx context.Context, email string) error {
 // ResetPassword verifies a one-time code and replaces the user's password.
 // All failures return the same sentinel so callers cannot enumerate accounts
 // or learn whether a code was expired, reused, or simply wrong.
-func (s *AuthService) ResetPassword(ctx context.Context, email, otp, newPassword string) error {
+func (s *AuthService) ResetPassword(ctx context.Context, w http.ResponseWriter, email, otp, newPassword string) error {
 	email = strings.TrimSpace(email)
-	if email == "" || strings.TrimSpace(otp) == "" || len(newPassword) < 6 {
+	if email == "" || strings.TrimSpace(otp) == "" {
+		return ErrInvalidInput
+	}
+	if msg := dto.ValidatePasswordPolicy(newPassword); msg != "" {
 		return ErrInvalidInput
 	}
 
@@ -425,7 +440,7 @@ func (s *AuthService) ResetPassword(ctx context.Context, email, otp, newPassword
 		return ErrInvalidResetCode
 	}
 
-	if !hashMatches(reset.OTPHash, otp) {
+	if !s.otpMatches(reset.OTPHash, otp) {
 		attempts, err := s.repo.IncrementPasswordResetAttempts(ctx, reset.ID)
 		if err != nil {
 			return err
@@ -449,6 +464,9 @@ func (s *AuthService) ResetPassword(ctx context.Context, email, otp, newPassword
 	if !ok {
 		return ErrInvalidResetCode
 	}
+	// Refresh tokens were revoked in the same transaction; clear the cookie so
+	// the client cannot keep presenting a now-invalid token.
+	s.clearRefreshCookie(w)
 	return nil
 }
 
@@ -474,8 +492,29 @@ func generateOTP() (string, error) {
 	return fmt.Sprintf("%06d", n.Int64()), nil
 }
 
-// hashMatches compares a stored SHA-256 hex digest with a candidate code in
-// constant time.
-func hashMatches(storedHash, candidate string) bool {
-	return subtle.ConstantTimeCompare([]byte(storedHash), []byte(hashToken(candidate))) == 1
+// passwordResetCooldown is the minimum interval between OTP issuance for one
+// account, which keeps the generic endpoint from being used to spam a mailbox.
+const passwordResetCooldown = time.Minute
+
+// otpSecret returns the key used to MAC one-time codes. A dedicated secret is
+// preferred; JWT_SECRET is a backwards-compatible fallback.
+func (s *AuthService) otpSecret() []byte {
+	if s.cfg.OTPSecret != "" {
+		return []byte(s.cfg.OTPSecret)
+	}
+	return []byte(s.cfg.JWTSecret)
+}
+
+// hashOTP stores a keyed digest so a leaked table cannot be brute-forced into
+// the six-digit code space the way an unsalted SHA-256 would allow.
+func (s *AuthService) hashOTP(otp string) string {
+	mac := hmac.New(sha256.New, s.otpSecret())
+	mac.Write([]byte(otp))
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+// otpMatches compares a stored keyed digest with a candidate code in constant
+// time.
+func (s *AuthService) otpMatches(storedHash, candidate string) bool {
+	return subtle.ConstantTimeCompare([]byte(storedHash), []byte(s.hashOTP(candidate))) == 1
 }
