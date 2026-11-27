@@ -24,6 +24,7 @@ import (
 type v1Handler struct {
 	pool *pgxpool.Pool
 	log  *slog.Logger
+	repo *AdminRepository
 }
 type packageWrite struct {
 	Slug         string  `json:"slug"`
@@ -47,11 +48,14 @@ var slugPattern = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 var filePattern = regexp.MustCompile(`^[A-Za-z0-9_.-]+$`)
 
 func RegisterV1(mux *http.ServeMux, pool *pgxpool.Pool, secret string, log *slog.Logger) {
-	h := &v1Handler{pool, log}
+	h := &v1Handler{pool: pool, log: log, repo: NewAdminRepository(pool)}
 	mux.Handle("POST /api/v1/admin/problems/{id}/clone", middleware.Auth(secret)(h.guard(http.HandlerFunc(h.clone))))
 	h.registerReference(mux, secret)
 	routes := map[string]http.HandlerFunc{
-		"GET /packages": h.packages, "POST /packages": h.createPackage,
+		"GET /users": h.users, "GET /users/{id}": h.userItem, "PATCH /users/{id}": h.userItem,
+		"GET /stats":      h.stats,
+		"GET /audit-logs": h.auditLogs,
+		"GET /packages":   h.packages, "POST /packages": h.createPackage,
 		"GET /packages/{id}": h.packageItem, "PATCH /packages/{id}": h.packageItem, "DELETE /packages/{id}": h.packageItem,
 		"POST /packages/{id}/publish": h.packageItem, "POST /packages/{id}/archive": h.packageItem,
 		"GET /packages/{id}/levels": h.levels, "PATCH /levels/{id}": h.levels,
