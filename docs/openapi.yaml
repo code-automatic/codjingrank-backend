@@ -241,11 +241,11 @@ paths:
       summary: Reset request received
       tags:
       - Auth
-      description: Always the same 202 envelope with data null, regardless of email existence. Send one-use reset token out
-        of band, expires in 30 minutes. Never return token. Requires reset-token persistence and email integration not present
-        in schema.sql.
+      description: Always the same 202 envelope with data null, regardless of email existence. When the email belongs to
+        an account, a six-digit one-time code is emailed and expires in 30 minutes. Never return the code. Repeated requests
+        within 60 seconds do not issue or email another code.
       security: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented
       x-owner: auth_service
       x-feature: F01
       x-priority: Should
@@ -273,18 +273,17 @@ paths:
         '500': {$ref: '#/components/responses/Error500'}
         '502': {$ref: '#/components/responses/Error502'}
         '504': {$ref: '#/components/responses/Error504'}
-      x-schema-dependencies:
-      - Add hashed expiring single-use password reset tokens; email delivery integration
   /api/v1/auth/reset-password:
     post:
       operationId: resetPassword
       summary: Password reset
       tags:
       - Auth
-      description: 'Consume token atomically; expired/used/invalid token: 400 RESET_TOKEN_INVALID. Revoke all refresh tokens;
-        existing access JWTs expire normally. Do not sign in automatically. Requires schema extension.'
+      description: 'Consume the emailed code atomically; expired/used/invalid code or unknown email: 400 RESET_TOKEN_INVALID.
+        Revoke all refresh tokens and clear the refresh cookie; existing access JWTs expire normally. Do not sign in
+        automatically. The new password must be 8-72 UTF-8 bytes with at least one letter and one digit.'
       security: []
-      x-implementation-status: target-not-implemented
+      x-implementation-status: implemented
       x-owner: auth_service
       x-feature: F01
       x-priority: Should
@@ -293,7 +292,7 @@ paths:
         content:
           application/json:
             schema: {$ref: '#/components/schemas/ResetPasswordRequest'}
-            example: {token: mock-single-use-reset-token, newPassword: Coding2026}
+            example: {email: learner@example.com, otp: '123456', newPassword: Coding2026}
       responses:
         '204':
           description: Completed. No response body.
@@ -313,8 +312,6 @@ paths:
         '500': {$ref: '#/components/responses/Error500'}
         '502': {$ref: '#/components/responses/Error502'}
         '504': {$ref: '#/components/responses/Error504'}
-      x-schema-dependencies:
-      - Add hashed expiring single-use password reset tokens; email delivery integration
   /api/v1/users/me:
     get:
       operationId: getMe
@@ -5920,7 +5917,8 @@ components:
     ResetPasswordRequest:
       type: object
       properties:
-        token: {type: string, example: mock-single-use-reset-token, minLength: 1, writeOnly: true}
+        email: {type: string, example: learner@example.com, format: email}
+        otp: {type: string, example: '123456', minLength: 6, maxLength: 6, pattern: '^[0-9]{6}$', description: Six-digit one-time code emailed by forgot-password., writeOnly: true}
         newPassword:
           type: string
           example: Coding2026
@@ -5932,7 +5930,8 @@ components:
           writeOnly: true
       additionalProperties: false
       required:
-      - token
+      - email
+      - otp
       - newPassword
     Tag:
       type: object

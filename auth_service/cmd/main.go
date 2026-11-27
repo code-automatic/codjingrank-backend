@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 
+	"innogen-backend/auth_service/internal/email"
 	"innogen-backend/auth_service/internal/handler"
 	"innogen-backend/auth_service/internal/jwt"
 	"innogen-backend/auth_service/internal/repository"
@@ -32,7 +33,7 @@ func main() {
 
 	repo := repository.New(pool)
 	jwtSvc := jwt.NewService(cfg.JWTSecret)
-	svc := service.New(repo, jwtSvc, cfg)
+	svc := service.New(repo, jwtSvc, cfg).SetMailer(email.New(cfg, log))
 	h := handler.New(svc, log)
 
 	mux := http.NewServeMux()

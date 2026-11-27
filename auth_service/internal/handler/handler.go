@@ -121,6 +121,53 @@ func (h *Handler) Refresh(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, http.StatusOK, resp, "Token refreshed successfully")
 }
 
+// ForgotPassword handles POST /auth/forgot-password. The response is always
+// the same generic 202 so callers cannot probe which emails are registered.
+func (h *Handler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
+	var req dto.ForgotPasswordRequest
+	if err := response.DecodeJSON(r, &req); err != nil {
+		response.ErrorSimple(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	if msg := req.Validate(); msg != "" {
+		response.ErrorSimple(w, http.StatusBadRequest, msg)
+		return
+	}
+
+	if err := h.svc.ForgotPassword(r.Context(), req.Email); err != nil {
+		h.log.Error("forgot password failed", slog.String("error", err.Error()))
+	}
+	response.Success(w, http.StatusAccepted, nil, "If the email exists, an OTP has been sent")
+}
+
+// ResetPassword handles POST /auth/reset-password.
+func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
+	var req dto.ResetPasswordRequest
+	if err := response.DecodeJSON(r, &req); err != nil {
+		response.ErrorSimple(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	if msg := req.Validate(); msg != "" {
+		response.ErrorSimple(w, http.StatusBadRequest, msg)
+		return
+	}
+
+	err := h.svc.ResetPassword(r.Context(), w, req.Email, req.OTP, req.NewPassword)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrInvalidInput):
+			response.ErrorSimple(w, http.StatusBadRequest, "Invalid request body")
+		case errors.Is(err, service.ErrInvalidResetCode):
+			response.Error(w, http.StatusBadRequest, "Reset token is invalid or expired", "RESET_TOKEN_INVALID")
+		default:
+			h.log.Error("reset password failed", slog.String("error", err.Error()))
+			response.ErrorSimple(w, http.StatusInternalServerError, "Internal server error")
+		}
+		return
+	}
+	response.NoContent(w)
+}
+
 // Logout handles POST /auth/logout.
 func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	if err := h.svc.Logout(r.Context(), w, r); err != nil {

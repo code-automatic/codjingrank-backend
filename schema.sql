@@ -27,6 +27,7 @@ DROP TABLE IF EXISTS problems CASCADE;
 DROP TABLE IF EXISTS levels CASCADE;
 DROP TABLE IF EXISTS packages CASCADE;
 DROP TABLE IF EXISTS languages CASCADE;
+DROP TABLE IF EXISTS password_resets CASCADE;
 DROP TABLE IF EXISTS refresh_tokens CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 DROP FUNCTION IF EXISTS set_updated_at() CASCADE;
@@ -117,6 +118,18 @@ CREATE TABLE refresh_tokens (
 );
 CREATE INDEX idx_refresh_tokens_user ON refresh_tokens (user_id, created_at DESC);
 CREATE INDEX idx_refresh_tokens_expiry ON refresh_tokens (expires_at) WHERE revoked_at IS NULL;
+
+CREATE TABLE password_resets (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    otp_hash text NOT NULL,
+    expires_at timestamptz NOT NULL,
+    used_at timestamptz,
+    attempts integer NOT NULL DEFAULT 0,
+    created_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_password_resets_expiry CHECK (expires_at > created_at)
+);
+CREATE INDEX idx_password_resets_user ON password_resets(user_id, created_at DESC);
 
 CREATE TABLE packages (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
